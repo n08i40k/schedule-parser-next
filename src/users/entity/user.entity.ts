@@ -27,8 +27,8 @@ export class User {
 	 * @example "n08i40k"
 	 */
 	@IsString()
-	@MinLength(4)
-	@MaxLength(10)
+	@MinLength(1)
+	@MaxLength(20)
 	username: string;
 
 	/**
