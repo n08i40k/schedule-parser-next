@@ -61,7 +61,7 @@ export class AuthService {
 	 */
 	async signUp(signUp: SignUpDto): Promise<User> {
 		const group = signUp.group.replaceAll(" ", "");
-		const username = signUp.username.replaceAll(" ", "");
+		const username = signUp.username.trim();
 
 		if (![UserRole.STUDENT, UserRole.TEACHER].includes(signUp.role))
 			throw new NotAcceptableException("Передана неизвестная роль");
@@ -100,7 +100,7 @@ export class AuthService {
 	 */
 	async signIn(signIn: SignInDto): Promise<User> {
 		const user = await this.usersService.findUnique({
-			username: signIn.username.replaceAll(" ", ""),
+			username: signIn.username,
 		});
 
 		if (

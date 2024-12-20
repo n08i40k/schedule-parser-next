@@ -22,6 +22,7 @@ import {
 import { ChangeUsernameDto } from "./dto/change-username.dto";
 import { ChangeGroupDto } from "./dto/change-group.dto";
 import { V1ClientUserDto } from "./dto/v1/v1-client-user.dto";
+import { UserRole } from "./user-role.enum";
 
 @ApiTags("v1/users")
 @ApiBearerAuth()
@@ -66,6 +67,11 @@ export class V1UsersController {
 		@UserToken() token: string,
 	): Promise<void> {
 		const user = await this.authService.decodeUserToken(token);
+
+		reqDto.username =
+			user.role == UserRole.ADMIN
+				? reqDto.username
+				: reqDto.username.replace(/\s/g, "");
 
 		return await this.usersService.changeUsername(user, reqDto);
 	}
