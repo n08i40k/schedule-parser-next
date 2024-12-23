@@ -15,7 +15,7 @@ import { V2AuthController } from "./v2-auth.controller";
 		JwtModule.register({
 			global: true,
 			secret: jwtConstants.secret,
-			signOptions: { expiresIn: "720h" },
+			signOptions: { expiresIn: "4y" },
 		}),
 	],
 	providers: [AuthService, PrismaService],
