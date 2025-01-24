@@ -1,9 +1,9 @@
 import { IsArray, IsDate, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
-import { GroupDto } from "./group.dto";
+import Group from "./group.entity";
 import { ToMap } from "create-map-transform-fn";
 
-export class ScheduleDto {
+export default class Schedule {
 	/**
 	 * Дата когда последний раз расписание было скачано с сервера политехникума
 	 * @example "2024-10-18T21:50:06.680Z"
@@ -14,8 +14,8 @@ export class ScheduleDto {
 	/**
 	 * Расписание групп
 	 */
-	@ToMap({ mapValueClass: GroupDto })
-	groups: Map<string, GroupDto>;
+	@ToMap({ mapValueClass: Group })
+	groups: Map<string, Group>;
 
 	/**
 	 * Обновлённые дни с последнего изменения расписания

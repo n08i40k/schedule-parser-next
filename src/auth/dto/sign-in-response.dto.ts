@@ -1,6 +1,6 @@
 import { IsJWT, IsMongoId, IsOptional, IsString } from "class-validator";
 
-export class SignInResponseDto {
+export default class SignInResponseDto {
 	/**
 	 * Идентификатор (ObjectId)
 	 * @example "66e1b7e255c5d5f1268cce90"

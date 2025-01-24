@@ -1,3 +1,4 @@
+/* eslint-disable */
 import "reflect-metadata";
 
 import {
@@ -10,7 +11,7 @@ import {
 	UnprocessableEntityException,
 } from "@nestjs/common";
 import { map, Observable } from "rxjs";
-import { instanceToPlain, plainToInstance } from "class-transformer";
+import { instanceToPlain } from "class-transformer";
 import { validate, ValidationOptions } from "class-validator";
 
 @Injectable()
@@ -32,13 +33,19 @@ export class ClassValidatorInterceptor implements NestInterceptor {
 					handler.name,
 				);
 
+				const providedGroups: Array<string> = Reflect.getMetadata(
+					"design:result-dto-groups",
+					cls.prototype,
+					handler.name,
+				);
+
 				const isArrayOfDto = Reflect.getMetadata(
 					"design:result-dto-array",
 					cls.prototype,
 					handler.name,
 				);
 
-				if (classDto === null) return returnValue;
+				if (classDto === null) return instanceToPlain(returnValue);
 
 				if (classDto === undefined) {
 					console.warn(
@@ -47,26 +54,26 @@ export class ClassValidatorInterceptor implements NestInterceptor {
 					return returnValue;
 				}
 
+				const groups = [
+					...providedGroups,
+					...(this.validatorOptions.groups ?? []),
+				];
+
 				const dtoArray: Array<any> = isArrayOfDto
 					? classDto
 					: [classDto];
 
 				for (let idx = 0; idx < dtoArray.length; idx++) {
-					const returnValueDto = plainToInstance(
-						dtoArray[idx],
-						instanceToPlain(returnValue),
-					);
-
-					if (!(returnValueDto instanceof Object))
+					if (!(returnValue instanceof Object))
 						throw new InternalServerErrorException(
-							returnValueDto,
+							returnValue,
 							"Return value is not object!",
 						);
 
-					const validationErrors = await validate(
-						returnValueDto,
-						this.validatorOptions,
-					);
+					const validationErrors = await validate(returnValue, {
+						...this.validatorOptions,
+						groups: groups,
+					});
 
 					if (validationErrors.length > 0) {
 						if (idx !== dtoArray.length - 1) continue;
@@ -82,6 +89,7 @@ export class ClassValidatorInterceptor implements NestInterceptor {
 							statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
 						});
 					}
+
 					return returnValue;
 				}
 			}),
@@ -90,7 +98,7 @@ export class ClassValidatorInterceptor implements NestInterceptor {
 }
 
 // noinspection FunctionNamingConventionJS
-export function ResultDto(dtoType: any) {
+export function ResultDto(dtoType: any, groups: Array<string> = []) {
 	return (target: NonNullable<unknown>, propertyKey: string | symbol) => {
 		Reflect.defineMetadata(
 			"design:result-dto",
@@ -101,6 +109,12 @@ export function ResultDto(dtoType: any) {
 		Reflect.defineMetadata(
 			"design:result-dto-array",
 			dtoType !== null && dtoType.constructor === Array,
+			target,
+			propertyKey,
+		);
+		Reflect.defineMetadata(
+			"design:result-dto-groups",
+			groups,
 			target,
 			propertyKey,
 		);

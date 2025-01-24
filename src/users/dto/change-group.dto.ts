@@ -1,4 +1,10 @@
-import { PickType } from "@nestjs/swagger";
-import { User } from "../entity/user.entity";
+import { IsString } from "class-validator";
 
-export class ChangeGroupDto extends PickType(User, ["group"]) {}
+export default class ChangeGroupDto {
+	/**
+	 * Группа
+	 * @example "ИС-214/23"
+	 */
+	@IsString()
+	group: string;
+}

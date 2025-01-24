@@ -1,9 +1,9 @@
-import { LessonDto } from "./lesson.dto";
+import Lesson from "./lesson.entity";
 import { IsOptional, IsString } from "class-validator";
 import { NullIf } from "../../utility/class-validators/conditional-field";
-import { V2LessonType } from "../enum/v2-lesson-type.enum";
+import { LessonType } from "../enum/lesson-type.enum";
 
-export class TeacherLessonDto extends LessonDto {
+export default class TeacherLesson extends Lesson {
 	/**
 	 * Название группы
 	 * @example "ИС-214/23"
@@ -11,8 +11,8 @@ export class TeacherLessonDto extends LessonDto {
 	 */
 	@IsString()
 	@IsOptional()
-	@NullIf((self: TeacherLessonDto) => {
-		return self.type === V2LessonType.BREAK;
+	@NullIf((self: TeacherLesson) => {
+		return self.type === LessonType.BREAK;
 	})
 	group: string | null;
 }

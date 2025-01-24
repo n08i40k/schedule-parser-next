@@ -2,6 +2,7 @@ import {
 	IsEnum,
 	IsJWT,
 	IsMongoId,
+	IsNumber,
 	IsObject,
 	IsOptional,
 	IsSemVer,
@@ -9,12 +10,13 @@ import {
 	MaxLength,
 	MinLength,
 } from "class-validator";
-import { Type } from "class-transformer";
-import { UserRole } from "../user-role.enum";
+import { plainToInstance, Type } from "class-transformer";
+import UserRole from "../user-role.enum";
 
-import { FcmUser } from "./fcm-user.entity";
+import FCM from "./fcm-user.entity";
+import UserDto from "../dto/user.dto";
 
-export class User {
+export default class User {
 	/**
 	 * Идентификатор (ObjectId)
 	 * @example "66e1b7e255c5d5f1268cce90"
@@ -70,9 +72,9 @@ export class User {
 	 * Данные Firebase Cloud Messaging
 	 */
 	@IsObject()
-	@Type(() => FcmUser)
+	@Type(() => FCM)
 	@IsOptional()
-	fcm?: FcmUser;
+	fcm?: FCM;
 
 	/**
 	 * Версия установленного приложения
@@ -80,4 +82,19 @@ export class User {
 	 */
 	@IsSemVer()
 	version: string;
+
+	/**
+	 * Идентификатор аккаунта VK
+	 * @example "2.0.0"
+	 */
+	@IsNumber()
+	vkId?: number;
+
+	static fromPlain(plain: object): User {
+		return plainToInstance(User, plain);
+	}
+
+	toDto(groups: Array<string> = []): UserDto {
+		return plainToInstance(UserDto, this, { groups: groups });
+	}
 }

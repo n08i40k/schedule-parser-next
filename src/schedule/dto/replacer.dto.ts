@@ -1,8 +1,8 @@
 import { PickType } from "@nestjs/swagger";
 import { IsNumber } from "class-validator";
-import { SetScheduleReplacerDto } from "./set-schedule-replacer.dto";
+import SetScheduleReplacerDto from "./set-schedule-replacer.dto";
 
-export class ScheduleReplacerDto extends PickType(SetScheduleReplacerDto, [
+export default class ReplacerDto extends PickType(SetScheduleReplacerDto, [
 	"etag",
 ]) {
 	/**

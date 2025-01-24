@@ -1,4 +1,12 @@
-import { PickType } from "@nestjs/swagger";
-import { User } from "../entity/user.entity";
+import { IsString, MaxLength, MinLength } from "class-validator";
 
-export class ChangeUsernameDto extends PickType(User, ["username"]) {}
+export default class ChangeUsernameDto {
+	/**
+	 * Имя
+	 * @example "n08i40k"
+	 */
+	@IsString()
+	@MinLength(1)
+	@MaxLength(20)
+	username: string;
+}

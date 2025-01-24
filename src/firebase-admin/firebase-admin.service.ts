@@ -12,9 +12,9 @@ import {
 import { firebaseConstants } from "../contants";
 import { UsersService } from "../users/users.service";
 
-import { User } from "../users/entity/user.entity";
+import User from "../users/entity/user.entity";
 import { TokenMessage } from "firebase-admin/lib/messaging/messaging-api";
-import { FcmUser } from "../users/entity/fcm-user.entity";
+import FCM from "../users/entity/fcm-user.entity";
 import { plainToInstance } from "class-transformer";
 
 @Injectable()
@@ -47,12 +47,12 @@ export class FirebaseAdminService implements OnModuleInit {
 		await this.messaging.send(message);
 	}
 
-	private getFcmOrDefault(user: User, token: string): FcmUser {
+	private getFcmOrDefault(user: User, token: string): FCM {
 		if (!user.fcm) {
-			return plainToInstance(FcmUser, {
+			return plainToInstance(FCM, {
 				token: token,
 				topics: [],
-			} as FcmUser);
+			} as FCM);
 		}
 
 		return user.fcm;
@@ -68,7 +68,7 @@ export class FirebaseAdminService implements OnModuleInit {
 		if (!isNew) {
 			if (fcm.token === token) return { userDto: user, isNew: false };
 
-			for (const topic in fcm.topics)
+			for (const topic of fcm.topics)
 				await this.messaging.subscribeToTopic(token, topic);
 			fcm.token = token;
 		}

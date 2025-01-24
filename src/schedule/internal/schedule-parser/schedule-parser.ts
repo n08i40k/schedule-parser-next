@@ -5,17 +5,17 @@ import { Range, WorkSheet } from "xlsx";
 import { toNormalString, trimAll } from "../../../utility/string.util";
 import { plainToClass, plainToInstance, Type } from "class-transformer";
 import * as objectHash from "object-hash";
-import { LessonTimeDto } from "../../dto/lesson-time.dto";
-import { V2LessonType } from "../../enum/v2-lesson-type.enum";
-import { LessonSubGroupDto } from "../../dto/lesson-sub-group.dto";
-import { LessonDto } from "../../dto/lesson.dto";
-import { DayDto } from "../../dto/day.dto";
-import { GroupDto } from "../../dto/group.dto";
+import LessonTime from "../../entities/lesson-time.entity";
+import { LessonType } from "../../enum/lesson-type.enum";
+import LessonSubGroup from "../../entities/lesson-sub-group.entity";
+import Lesson from "../../entities/lesson.entity";
+import Day from "../../entities/day.entity";
+import Group from "../../entities/group.entity";
 import * as assert from "node:assert";
 import { ScheduleReplacerService } from "../../schedule-replacer.service";
-import { TeacherDto } from "../../dto/teacher.dto";
-import { TeacherDayDto } from "../../dto/teacher-day.dto";
-import { TeacherLessonDto } from "../../dto/teacher-lesson.dto";
+import Teacher from "../../entities/teacher.entity";
+import TeacherDay from "../../entities/teacher-day.entity";
+import TeacherLesson from "../../entities/teacher-lesson.entity";
 import {
 	IsArray,
 	IsDate,
@@ -24,6 +24,7 @@ import {
 	ValidateNested,
 } from "class-validator";
 import { ToMap } from "create-map-transform-fn";
+import { ClassProperties } from "../../../utility/class-trasformer/class-transformer-ctor";
 
 type InternalId = {
 	/**
@@ -46,12 +47,12 @@ type InternalTime = {
 	/**
 	 * Временной отрезок
 	 */
-	timeRange: LessonTimeDto;
+	timeRange: LessonTime;
 
 	/**
 	 * Тип пары на этой строке
 	 */
-	lessonType: V2LessonType;
+	lessonType: LessonType;
 
 	/**
 	 * Индекс пары на этой строке
@@ -64,7 +65,7 @@ type InternalTime = {
 	xlsxRange: Range;
 };
 
-export class V2ScheduleParseResult {
+export class ScheduleParseResult {
 	/**
 	 * ETag расписания
 	 */
@@ -94,15 +95,15 @@ export class V2ScheduleParseResult {
 	 * Расписание групп в виде списка.
 	 * Ключ - название группы.
 	 */
-	@ToMap({ mapValueClass: GroupDto })
-	groups: Map<string, GroupDto>;
+	@ToMap({ mapValueClass: Group })
+	groups: Map<string, Group>;
 
 	/**
 	 * Расписание преподавателей в виде списка.
 	 * Ключ - ФИО преподавателя
 	 */
-	@ToMap({ mapValueClass: TeacherDto })
-	teachers: Map<string, TeacherDto>;
+	@ToMap({ mapValueClass: Teacher })
+	teachers: Map<string, Teacher>;
 
 	/**
 	 * Список групп у которых было обновлено расписание с момента последнего обновления файла.
@@ -126,8 +127,8 @@ export class V2ScheduleParseResult {
 	updatedTeachers: Array<Array<number>>;
 }
 
-export class V2ScheduleParser {
-	private lastResult: V2ScheduleParseResult | null = null;
+export class ScheduleParser {
+	private lastResult: ScheduleParseResult | null = null;
 
 	/**
 	 * @param xlsDownloader - класс для загрузки расписания с сайта политехникума
@@ -176,113 +177,94 @@ export class V2ScheduleParser {
 		row: number,
 		column: number,
 	): string | null {
-		const cell: XLSX.CellObject | null =
-			worksheet[XLSX.utils.encode_cell({ r: row, c: column })];
+		const cell = worksheet[
+			XLSX.utils.encode_cell({ r: row, c: column })
+		] as XLSX.CellObject;
 
 		return toNormalString(cell?.w);
 	}
 
 	/**
 	 * Парсит информацию о паре исходя из текста в записи
-	 * @param lessonName - текст в записи
+	 * @param text - текст в записи
 	 * @returns {{
 	 * 		name: string;
-	 * 		subGroups: Array<LessonSubGroupDto>;
+	 * 		subGroups: Array<LessonSubGroup>;
 	 * 	}} - название пары и список подгрупп
 	 * @private
 	 * @static
 	 */
-	private static parseNameAndSubGroups(lessonName: string): {
+	private static parseNameAndSubGroups(text: string): {
 		name: string;
-		subGroups: Array<LessonSubGroupDto>;
+		subGroups: Array<LessonSubGroup>;
 	} {
+		if (!text) return { name: text, subGroups: [] };
+
 		// хд
+		const lessonRegExp = /(?:[А-Я][а-я]+[А-Я]{2}(?:\([0-9][а-я]+\))?)+$/m;
+		const teacherRegExp =
+			/([А-Я][а-я]+)([А-Я])([А-Я])(?:\(([0-9])[а-я]+\))?/g;
 
-		const allRegex =
-			/(?:[А-ЯЁ][а-яё]+\s[А-ЯЁ]\.\s?[А-ЯЁ]\.(?:\s?\(\s?[0-9]\s?подгруппа\s?\))?(?:,\s)?)+$/gm;
-		const teacherAndSubGroupRegex =
-			/(?:[А-ЯЁ][а-яё]+\s[А-ЯЁ]\.\s?[А-ЯЁ]\.(?:\s?\(\s?[0-9]\s?подгруппа\s?\))?)+/gm;
+		const rawTeachers = (text
+			.replaceAll(/[\s\n\t.,]+/g, "")
+			.match(lessonRegExp) ?? [])[0];
 
-		const allMatch = allRegex.exec(lessonName);
+		// если не ничего не найдено
+		if (!rawTeachers)
+			return {
+				name: text
+					.replaceAll(/[\t\n]+/g, "") // Убираем все переносы
+					.replaceAll(/\s+/g, " ") // Убираем все лишние пробелы
+					.trim() // Убираем пробелы по краям
+					.replace(/\.$/m, ""), // Убираем точку в конце названия, если присутствует
+				subGroups: [],
+			};
 
-		// если не ничё не найдено
-		if (allMatch === null) return { name: lessonName, subGroups: [] };
+		const teacherIt = rawTeachers.matchAll(teacherRegExp);
 
-		const all: Array<string> = [];
+		const subGroups: Array<LessonSubGroup> = [];
+		let lessonName: string;
 
-		let allInnerMatch: RegExpExecArray;
-		while (
-			(allInnerMatch = teacherAndSubGroupRegex.exec(allMatch[0])) !== null
-		) {
-			if (allInnerMatch.index === teacherAndSubGroupRegex.lastIndex)
-				teacherAndSubGroupRegex.lastIndex++;
-
-			all.push(allInnerMatch[0].trim());
-		}
-
-		// парадокс
-		if (all.length === 0) {
-			throw new Error("Парадокс");
-		}
-
-		const subGroups: Array<LessonSubGroupDto> = [];
-
-		for (const teacherAndSubGroup of all) {
-			const teacherRegex = /[А-ЯЁ][а-яё]+\s[А-ЯЁ]\.\s?[А-ЯЁ]\./g;
-			const subGroupRegex = /\([0-9]подгруппа\)/g;
-
-			const teacherMatch = teacherRegex.exec(teacherAndSubGroup);
-			if (teacherMatch === null) throw new Error("Парадокс");
-
-			let teacherFIO = teacherMatch[0];
-			const teacherSpaceIndex = teacherFIO.indexOf(" ") + 1;
-			const teacherIO = teacherFIO
-				.substring(teacherSpaceIndex)
-				.replaceAll("s", "");
-
-			teacherFIO = `${teacherFIO.substring(0, teacherSpaceIndex)}${teacherIO}`;
-
-			const subGroupMatch = subGroupRegex.exec(
-				teacherAndSubGroup.replaceAll(" ", ""),
-			);
-			const subGroup = subGroupMatch
-				? Number.parseInt(subGroupMatch[0][1])
-				: 1;
+		let m: RegExpMatchArray;
+		while ((m = teacherIt.next().value as RegExpMatchArray)) {
+			if (!lessonName) {
+				lessonName = text
+					.substring(0, text.indexOf(m[1]))
+					.replaceAll(/[\t\n]+/g, "") // Убираем все переносы
+					.replaceAll(/\s+/g, " ") // Убираем все лишние пробелы
+					.trim() // Убираем пробелы по краям
+					.replace(/\.$/m, ""); // Убираем точку в конце названия, если присутствует
+			}
 
 			subGroups.push(
-				plainToClass(LessonSubGroupDto, {
-					teacher: teacherFIO,
-					number: subGroup,
-					cabinet: "",
+				new LessonSubGroup({
+					number: +(m[4] ?? "0"),
+					cabinet: null,
+					teacher: `${m[1]} ${m[2]}.${m[3]}.`,
 				}),
 			);
 		}
 
-		for (const index in subGroups) {
-			if (subGroups.length === 1) {
-				break;
-			}
+		// фикс, если у кого-то отсутствует индекс подгруппы
 
-			// бляздец
-			switch (index) {
-				case "0":
-					subGroups[index].number =
-						subGroups[+index + 1].number === 2 ? 1 : 2;
-					continue;
-				case "1":
-					subGroups[index].number =
-						subGroups[+index - 1].number === 1 ? 2 : 1;
-					continue;
-				default:
-					subGroups[index].number = +index;
+		// если 1 преподаватель
+		if (subGroups.length === 1) subGroups[0].number = 1;
+		else if (subGroups.length === 2) {
+			// если индексы отсутствуют у обоих, ставим поочерёдно
+			if (subGroups[0].number === 0 && subGroups[1].number === 0) {
+				subGroups[0].number = 1;
+				subGroups[1].number = 2;
 			}
+			// если индекс отсутствует у первого, ставим 2, если у второго индекс 1 и наоборот
+			else if (subGroups[0].number === 0)
+				subGroups[0].number = subGroups[1].number === 1 ? 2 : 1;
+			// если индекс отсутствует у второго, ставим 2, если у первого индекс 1 и наоборот
+			else if (subGroups[1].number === 0)
+				subGroups[1].number = subGroups[0].number === 1 ? 2 : 1;
 		}
 
 		return {
-			name: lessonName
-				.substring(0, allMatch.index)
-				.replaceAll(".", "")
-				.trim(),
+			name: lessonName,
 			subGroups: subGroups,
 		};
 	}
@@ -308,7 +290,7 @@ export class V2ScheduleParser {
 		const days: Array<InternalId> = [];
 
 		for (let row = range.s.r + 1; row <= range.e.r; ++row) {
-			const dayName = V2ScheduleParser.getCellData(workSheet, row, 0);
+			const dayName = ScheduleParser.getCellData(workSheet, row, 0);
 			if (!dayName) continue;
 
 			if (!isHeaderParsed) {
@@ -320,7 +302,7 @@ export class V2ScheduleParser {
 					column <= range.e.c;
 					++column
 				) {
-					const groupName = V2ScheduleParser.getCellData(
+					const groupName = ScheduleParser.getCellData(
 						workSheet,
 						row,
 						column,
@@ -359,47 +341,45 @@ export class V2ScheduleParser {
 	}
 
 	private static convertGroupsToTeachers(
-		groups: Map<string, GroupDto>,
-	): Map<string, TeacherDto> {
-		const result = new Map<string, TeacherDto>();
+		groups: Map<string, Group>,
+	): Map<string, Teacher> {
+		const result = new Map<string, Teacher>();
 
 		for (const groupName of groups.keys()) {
 			const group = groups.get(groupName);
 
 			for (const day of group.days) {
 				for (const lesson of day.lessons) {
-					if (lesson.type !== V2LessonType.DEFAULT) continue;
+					if (lesson.type !== LessonType.DEFAULT) continue;
 
 					for (const subGroup of lesson.subGroups) {
-						let teacherDto: TeacherDto = result.get(
-							subGroup.teacher,
-						);
+						let teacherDto: Teacher = result.get(subGroup.teacher);
 
 						if (!teacherDto) {
-							teacherDto = new TeacherDto();
-							result.set(subGroup.teacher, teacherDto);
+							teacherDto = new Teacher({
+								name: subGroup.teacher,
+								days: [],
+							});
 
-							teacherDto.name = subGroup.teacher;
-							teacherDto.days = [];
+							result.set(subGroup.teacher, teacherDto);
 						}
 
-						let teacherDay: TeacherDayDto =
-							teacherDto.days[day.name];
+						let teacherDay = teacherDto.days[
+							day.name
+						] as TeacherDay;
 
 						if (!teacherDay) {
 							teacherDay = teacherDto.days[day.name] =
-								new TeacherDayDto();
-
-							// TODO: Что это блять такое?
-							// noinspection JSConstantReassignment
-							teacherDay.name = day.name;
-							teacherDay.date = day.date;
-							teacherDay.lessons = [];
+								new TeacherDay({
+									name: day.name,
+									date: day.date,
+									lessons: [],
+								});
 						}
 
 						const teacherLesson = structuredClone(
 							lesson,
-						) as TeacherLessonDto;
+						) as TeacherLesson;
 						teacherLesson.group = groupName;
 
 						teacherDay.lessons.push(teacherLesson);
@@ -413,8 +393,11 @@ export class V2ScheduleParser {
 
 			const days = teacher.days;
 
+			// eslint-disable-next-line @typescript-eslint/no-for-in-array
 			for (const dayName in days) {
 				const day = days[dayName];
+
+				// eslint-disable-next-line @typescript-eslint/no-array-delete
 				delete days[dayName];
 
 				day.lessons.sort(
@@ -432,10 +415,10 @@ export class V2ScheduleParser {
 
 	/**
 	 * Возвращает текущее расписание
-	 * @returns {V2ScheduleParseResult} - расписание
+	 * @returns {ScheduleParseResult} - расписание
 	 * @async
 	 */
-	async getSchedule(): Promise<V2ScheduleParseResult> {
+	async getSchedule(): Promise<ScheduleParseResult> {
 		const headData = await this.xlsDownloader.fetch(true);
 		this.xlsDownloader.verifyFetchResult(headData);
 
@@ -467,9 +450,9 @@ export class V2ScheduleParser {
 		const workSheet = workBook.Sheets[workBook.SheetNames[0]];
 
 		const { groupSkeletons, daySkeletons } =
-			V2ScheduleParser.parseSkeleton(workSheet);
+			ScheduleParser.parseSkeleton(workSheet);
 
-		const groups = new Map<string, GroupDto>();
+		const groups = new Map<string, Group>();
 
 		const daysTimes: Array<Array<InternalTime>> = [];
 		let daysTimesFilled = false;
@@ -478,13 +461,13 @@ export class V2ScheduleParser {
 			.e.r;
 
 		for (const groupSkeleton of groupSkeletons) {
-			const group = new GroupDto();
+			const group = new Group();
 			group.name = groupSkeleton.name;
 			group.days = [];
 
 			for (let dayIdx = 0; dayIdx < daySkeletons.length; ++dayIdx) {
 				const daySkeleton = daySkeletons[dayIdx];
-				const day = new DayDto();
+				const day = new Day();
 				{
 					const daySpaceIndex = daySkeleton.name.indexOf(" ");
 					day.name = daySkeleton.name.substring(0, daySpaceIndex);
@@ -504,8 +487,8 @@ export class V2ScheduleParser {
 						? daySkeletons[dayIdx + 1].row
 						: saturdayEndRow) - daySkeleton.row;
 
-				const dayTimes: Array<InternalTime> = daysTimesFilled
-					? daysTimes[day.name]
+				const dayTimes = daysTimesFilled
+					? (daysTimes[day.name] as Array<InternalTime>)
 					: [];
 
 				if (!daysTimesFilled) {
@@ -514,7 +497,7 @@ export class V2ScheduleParser {
 						row < daySkeleton.row + rowDistance;
 						++row
 					) {
-						const time = V2ScheduleParser.getCellData(
+						const time = ScheduleParser.getCellData(
 							workSheet,
 							row,
 							lessonTimeColumn,
@@ -524,19 +507,17 @@ export class V2ScheduleParser {
 
 						// type
 						const lessonType = time.includes("пара")
-							? V2LessonType.DEFAULT
-							: V2LessonType.ADDITIONAL;
+							? LessonType.DEFAULT
+							: LessonType.ADDITIONAL;
 
 						const defaultIndex =
-							lessonType === V2LessonType.DEFAULT
-								? +time[0]
-								: null;
+							lessonType === LessonType.DEFAULT ? +time[0] : null;
 
 						// time
-						const timeRange = new LessonTimeDto();
-
-						timeRange.start = new Date(day.date);
-						timeRange.end = new Date(day.date);
+						const timeRange = new LessonTime({
+							start: new Date(day.date),
+							end: new Date(day.date),
+						});
 
 						const timeString = time.replaceAll(".", ":");
 						const timeRegex = /(\d+:\d+)-(\d+:\d+)/g;
@@ -562,7 +543,7 @@ export class V2ScheduleParser {
 							lessonType: lessonType,
 							defaultIndex: defaultIndex,
 
-							xlsxRange: V2ScheduleParser.getMergeFromStart(
+							xlsxRange: ScheduleParser.getMergeFromStart(
 								workSheet,
 								row,
 								lessonTimeColumn,
@@ -574,7 +555,7 @@ export class V2ScheduleParser {
 				}
 
 				for (const time of dayTimes) {
-					const lessonsOrStreet = V2ScheduleParser.parseLesson(
+					const lessonsOrStreet = ScheduleParser.parseLesson(
 						workSheet,
 						day,
 						dayTimes,
@@ -583,11 +564,11 @@ export class V2ScheduleParser {
 					);
 
 					if (typeof lessonsOrStreet === "string") {
-						day.street = lessonsOrStreet as string;
+						day.street = lessonsOrStreet;
 						continue;
 					}
 
-					for (const lesson of lessonsOrStreet as Array<LessonDto>)
+					for (const lesson of lessonsOrStreet)
 						day.lessons.push(lesson);
 				}
 
@@ -599,12 +580,12 @@ export class V2ScheduleParser {
 			groups.set(group.name, group);
 		}
 
-		const updatedGroups = V2ScheduleParser.getUpdatedGroups(
+		const updatedGroups = ScheduleParser.getUpdatedGroups(
 			this.lastResult?.groups,
 			groups,
 		);
 
-		const teachers = V2ScheduleParser.convertGroupsToTeachers(groups);
+		const teachers = ScheduleParser.convertGroupsToTeachers(groups);
 
 		return (this.lastResult = {
 			downloadedAt: headData.requestedAt,
@@ -630,16 +611,16 @@ export class V2ScheduleParser {
 
 	private static parseLesson(
 		workSheet: XLSX.Sheet,
-		day: DayDto,
+		day: Day,
 		dayTimes: Array<InternalTime>,
 		time: InternalTime,
 		column: number,
-	): Array<LessonDto> | string {
+	): Array<Lesson> | string {
 		const row = time.xlsxRange.s.r;
 
 		// name
 		let rawName = trimAll(
-			V2ScheduleParser.getCellData(workSheet, row, column)?.replaceAll(
+			ScheduleParser.getCellData(workSheet, row, column)?.replaceAll(
 				/[\n\r]/g,
 				" ",
 			) ?? "",
@@ -647,87 +628,94 @@ export class V2ScheduleParser {
 
 		if (rawName.length === 0) return [];
 
-		const lesson = new LessonDto();
+		const lessonData = {} as ClassProperties<Lesson>;
 
 		if (this.otherStreetRegExp.test(rawName)) return rawName;
 		else if (rawName.includes("ЭКЗАМЕН")) {
-			lesson.type = V2LessonType.EXAM_DEFAULT;
+			lessonData.type = LessonType.EXAM_DEFAULT;
 			rawName = trimAll(rawName.replace("ЭКЗАМЕН", ""));
 		} else if (rawName.includes("ЗАЧЕТ С ОЦЕНКОЙ")) {
-			lesson.type = V2LessonType.EXAM_WITH_GRADE;
+			lessonData.type = LessonType.EXAM_WITH_GRADE;
 			rawName = trimAll(rawName.replace("ЗАЧЕТ С ОЦЕНКОЙ", ""));
 		} else if (rawName.includes("ЗАЧЕТ")) {
-			lesson.type = V2LessonType.EXAM;
+			lessonData.type = LessonType.EXAM;
 			rawName = trimAll(rawName.replace("ЗАЧЕТ", ""));
 		} else if (rawName.includes("(консультация)")) {
-			lesson.type = V2LessonType.CONSULTATION;
+			lessonData.type = LessonType.CONSULTATION;
 			rawName = trimAll(rawName.replace("(консультация)", ""));
 		} else if (this.consultationRegExp.test(rawName)) {
-			lesson.type = V2LessonType.CONSULTATION;
+			lessonData.type = LessonType.CONSULTATION;
 			rawName = trimAll(rawName.replace(this.consultationRegExp, ""));
 		} else if (rawName.includes("САМОСТОЯТЕЛЬНАЯ РАБОТА")) {
-			lesson.type = V2LessonType.INDEPENDENT_WORK;
+			lessonData.type = LessonType.INDEPENDENT_WORK;
 			rawName = trimAll(rawName.replace("САМОСТОЯТЕЛЬНАЯ РАБОТА", ""));
-		} else lesson.type = time.lessonType;
+		} else lessonData.type = time.lessonType;
 
-		lesson.defaultRange =
+		lessonData.defaultRange =
 			time.defaultIndex !== null
 				? [time.defaultIndex, time.defaultIndex]
 				: null;
-
-		lesson.time = new LessonTimeDto();
-		lesson.time.start = time.timeRange.start;
 
 		// check if multi-lesson
 		const range = this.getMergeFromStart(workSheet, row, column);
 		const endTime = dayTimes.filter((dayTime) => {
 			return dayTime.xlsxRange.e.r === range.e.r;
 		})[0];
-		lesson.time.end = endTime?.timeRange.end ?? time.timeRange.end;
 
-		if (lesson.defaultRange !== null)
-			lesson.defaultRange[1] = endTime?.defaultIndex ?? time.defaultIndex;
+		lessonData.time = new LessonTime({
+			start: time.timeRange.start,
+			end: endTime?.timeRange.end ?? time.timeRange.end,
+		});
+
+		if (lessonData.defaultRange !== null)
+			lessonData.defaultRange[1] =
+				endTime?.defaultIndex ?? time.defaultIndex;
 
 		// name and subGroups (subGroups unfilled)
 		{
-			const nameAndGroups = V2ScheduleParser.parseNameAndSubGroups(
-				trimAll(rawName?.replaceAll(/[\n\r]/g, "") ?? ""),
+			const nameAndGroups = ScheduleParser.parseNameAndSubGroups(
+				rawName ?? "",
 			);
 
-			lesson.name = nameAndGroups.name;
-			lesson.subGroups = nameAndGroups.subGroups;
+			lessonData.name = nameAndGroups.name;
+			lessonData.subGroups = nameAndGroups.subGroups;
 		}
 
 		// cabinets
 		{
-			const cabinets = V2ScheduleParser.parseCabinets(
+			const cabinets = ScheduleParser.parseCabinets(
 				workSheet,
 				row,
 				column + 1,
 			);
 
 			if (cabinets.length === 1) {
-				for (const index in lesson.subGroups)
-					lesson.subGroups[index].cabinet = cabinets[0];
-			} else if (cabinets.length === lesson.subGroups.length) {
-				for (const index in lesson.subGroups)
-					lesson.subGroups[index].cabinet = cabinets[index];
+				// eslint-disable-next-line @typescript-eslint/no-for-in-array
+				for (const index in lessonData.subGroups)
+					lessonData.subGroups[index].cabinet = cabinets[0];
+			} else if (cabinets.length === lessonData.subGroups.length) {
+				// eslint-disable-next-line @typescript-eslint/no-for-in-array
+				for (const index in lessonData.subGroups) {
+					lessonData.subGroups[index].cabinet =
+						cabinets[lessonData.subGroups[index].number - 1];
+				}
 			} else if (cabinets.length !== 0) {
-				if (cabinets.length > lesson.subGroups.length) {
+				if (cabinets.length > lessonData.subGroups.length) {
+					// eslint-disable-next-line @typescript-eslint/no-for-in-array
 					for (const index in cabinets) {
-						if (lesson.subGroups[index] === undefined) {
-							lesson.subGroups.push(
-								plainToInstance(LessonSubGroupDto, {
+						if (lessonData.subGroups[index] === undefined) {
+							lessonData.subGroups.push(
+								plainToInstance(LessonSubGroup, {
 									number: +index + 1,
 									teacher: "Ошибка в расписании",
 									cabinet: cabinets[index],
-								} as LessonSubGroupDto),
+								} as LessonSubGroup),
 							);
 
 							continue;
 						}
 
-						lesson.subGroups[index].cabinet = cabinets[index];
+						lessonData.subGroups[index].cabinet = cabinets[index];
 					}
 				} else throw new Error("Разное кол-во кабинетов и подгрупп!");
 			}
@@ -738,20 +726,20 @@ export class V2ScheduleParser {
 				? null
 				: day.lessons[day.lessons.length - 1];
 
-		if (!prevLesson) return [lesson];
+		if (!prevLesson) return [lessonData];
 
 		return [
-			plainToInstance(LessonDto, {
-				type: V2LessonType.BREAK,
+			new Lesson({
+				type: LessonType.BREAK,
 				defaultRange: null,
 				name: null,
-				time: plainToInstance(LessonTimeDto, {
+				time: new LessonTime({
 					start: prevLesson.time.end,
-					end: lesson.time.start,
-				} as LessonTimeDto),
+					end: lessonData.time.start,
+				}),
 				subGroups: [],
-			} as LessonDto),
-			lesson,
+			}),
+			new Lesson(lessonData),
 		];
 	}
 
@@ -762,7 +750,7 @@ export class V2ScheduleParser {
 	) {
 		const cabinets: Array<string> = [];
 		{
-			const rawCabinets = V2ScheduleParser.getCellData(
+			const rawCabinets = ScheduleParser.getCellData(
 				workSheet,
 				row,
 				column,
@@ -782,8 +770,8 @@ export class V2ScheduleParser {
 	}
 
 	private static getUpdatedGroups(
-		cachedGroups: Map<string, GroupDto> | null,
-		currentGroups: Map<string, GroupDto>,
+		cachedGroups: Map<string, Group> | null,
+		currentGroups: Map<string, Group>,
 	): Array<Array<number>> {
 		if (!cachedGroups) return [];
 
@@ -795,6 +783,7 @@ export class V2ScheduleParser {
 
 			const affectedGroupDays: Array<number> = [];
 
+			// eslint-disable-next-line @typescript-eslint/no-for-in-array
 			for (const dayIdx in currentGroup.days) {
 				if (
 					objectHash.sha1(currentGroup.days[dayIdx]) !==

@@ -1,4 +1,4 @@
-export enum V2LessonType {
+export enum LessonType {
 	DEFAULT = 0, // Обычная
 	ADDITIONAL, // Допы
 	BREAK, // Перемена

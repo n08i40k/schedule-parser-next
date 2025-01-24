@@ -1,6 +1,7 @@
 import { IsArray, IsString, ValidateNested } from "class-validator";
 
-export class FcmUser {
+// noinspection JSClassNamingConvention
+export default class FCM {
 	/**
 	 * Токен Firebase Cloud Messaging
 	 * @example "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXCJ9..."

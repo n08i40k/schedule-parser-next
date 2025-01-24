@@ -5,21 +5,21 @@ import { plainToInstance } from "class-transformer";
 import { ScheduleReplacerService } from "./schedule-replacer.service";
 import { FirebaseAdminService } from "../firebase-admin/firebase-admin.service";
 import { scheduleConstants } from "../contants";
-import { ScheduleDto } from "./dto/schedule.dto";
 import {
-	V2ScheduleParser,
-	V2ScheduleParseResult,
-} from "./internal/schedule-parser/v2-schedule-parser";
+	ScheduleParser,
+	ScheduleParseResult,
+} from "./internal/schedule-parser/schedule-parser";
 import * as objectHash from "object-hash";
-import { CacheStatusDto } from "./dto/cache-status.dto";
-import { GroupScheduleDto } from "./dto/group-schedule.dto";
-import { ScheduleGroupNamesDto } from "./dto/schedule-group-names.dto";
-import { TeacherScheduleDto } from "./dto/teacher-schedule.dto";
-import { ScheduleTeacherNamesDto } from "./dto/schedule-teacher-names.dto";
+import CacheStatusDto from "./dto/cache-status.dto";
+import Schedule from "./entities/schedule.entity";
+import GroupSchedule from "./entities/group-schedule.entity";
+import TeacherSchedule from "./entities/teacher-schedule.entity";
+import GetGroupNamesDto from "./dto/get-group-names.dto";
+import TeacherNamesDto from "./dto/teacher-names.dto";
 
 @Injectable()
 export class ScheduleService {
-	readonly scheduleParser: V2ScheduleParser;
+	readonly scheduleParser: ScheduleParser;
 
 	private cacheUpdatedAt: Date = new Date(0);
 	private cacheHash: string = "0000000000000000000000000000000000000000";
@@ -31,22 +31,24 @@ export class ScheduleService {
 		private readonly scheduleReplacerService: ScheduleReplacerService,
 		private readonly firebaseAdminService: FirebaseAdminService,
 	) {
-		setInterval(async () => {
+		setInterval(() => {
 			const now = new Date();
 			if (now.getHours() != 7 || now.getMinutes() != 30) return;
 
-			await this.firebaseAdminService.sendByTopic("common", {
-				android: {
-					priority: "high",
-					ttl: 60 * 60 * 1000,
-				},
-				data: {
-					type: "lessons-start",
-				},
-			});
+			this.firebaseAdminService
+				.sendByTopic("common", {
+					android: {
+						priority: "high",
+						ttl: 60 * 60 * 1000,
+					},
+					data: {
+						type: "lessons-start",
+					},
+				})
+				.then();
 		}, 60000);
 
-		this.scheduleParser = new V2ScheduleParser(
+		this.scheduleParser = new ScheduleParser(
 			new BasicXlsDownloader(),
 			this.scheduleReplacerService,
 		);
@@ -63,7 +65,7 @@ export class ScheduleService {
 		});
 	}
 
-	async getSourceSchedule(): Promise<V2ScheduleParseResult> {
+	async getSourceSchedule(): Promise<ScheduleParseResult> {
 		const schedule = await this.scheduleParser.getSchedule();
 
 		this.cacheUpdatedAt = new Date();
@@ -91,7 +93,7 @@ export class ScheduleService {
 		return schedule;
 	}
 
-	async getSchedule(): Promise<ScheduleDto> {
+	async getSchedule(): Promise<Schedule> {
 		const sourceSchedule = await this.getSourceSchedule();
 
 		return {
@@ -101,7 +103,7 @@ export class ScheduleService {
 		};
 	}
 
-	async getGroup(name: string): Promise<GroupScheduleDto> {
+	async getGroup(name: string): Promise<GroupSchedule> {
 		const schedule = await this.getSourceSchedule();
 
 		const group = schedule.groups.get(name);
@@ -114,22 +116,22 @@ export class ScheduleService {
 		return {
 			updatedAt: this.cacheUpdatedAt,
 			group: group,
-			updated: schedule.updatedGroups[name] ?? [],
+			updated: (schedule.updatedGroups[name] as Array<number>) ?? [],
 		};
 	}
 
-	async getGroupNames(): Promise<ScheduleGroupNamesDto> {
+	async getGroupNames(): Promise<GetGroupNamesDto> {
 		const schedule = await this.getSourceSchedule();
 		const names: Array<string> = [];
 
 		for (const name of schedule.groups.keys()) names.push(name);
 
-		return plainToInstance(ScheduleGroupNamesDto, {
+		return plainToInstance(GetGroupNamesDto, {
 			names: names,
 		});
 	}
 
-	async getTeacher(name: string): Promise<TeacherScheduleDto> {
+	async getTeacher(name: string): Promise<TeacherSchedule> {
 		const schedule = await this.getSourceSchedule();
 
 		const teacher = schedule.teachers.get(name);
@@ -142,17 +144,20 @@ export class ScheduleService {
 		return {
 			updatedAt: this.cacheUpdatedAt,
 			teacher: teacher,
-			updated: schedule.updatedGroups[name] ?? [],
+			updated: (schedule.updatedGroups[name] as Array<number>) ?? [],
 		};
 	}
 
-	async getTeacherNames(): Promise<ScheduleTeacherNamesDto> {
+	async getTeacherNames(): Promise<TeacherNamesDto> {
 		const schedule = await this.getSourceSchedule();
 		const names: Array<string> = [];
 
-		for (const name of schedule.teachers.keys()) names.push(name);
+		for (const name of schedule.teachers.keys()) {
+			if (name === "Ошибка в расписании") continue;
+			names.push(name);
+		}
 
-		return plainToInstance(ScheduleTeacherNamesDto, {
+		return plainToInstance(TeacherNamesDto, {
 			names: names,
 		});
 	}
@@ -166,7 +171,7 @@ export class ScheduleService {
 	}
 
 	async refreshCache() {
-		await this.cacheManager.reset();
+		await this.cacheManager.clear();
 
 		await this.getSourceSchedule();
 	}

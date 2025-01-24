@@ -52,10 +52,10 @@ export class BasicXlsDownloader implements XlsDownloaderInterface {
 
 		type HeaderValue = string | undefined;
 
-		const contentType: HeaderValue = response.headers["content-type"];
-		const etag: HeaderValue = response.headers["etag"];
-		const uploadedAt: HeaderValue = response.headers["last-modified"];
-		const requestedAt: HeaderValue = response.headers["date"];
+		const contentType = response.headers["content-type"] as HeaderValue;
+		const etag = response.headers["etag"] as HeaderValue;
+		const uploadedAt = response.headers["last-modified"] as HeaderValue;
+		const requestedAt = response.headers["date"] as HeaderValue;
 
 		if (!contentType || !etag || !uploadedAt || !requestedAt) {
 			return {
@@ -77,7 +77,7 @@ export class BasicXlsDownloader implements XlsDownloaderInterface {
 			etag: etag,
 			uploadedAt: new Date(uploadedAt),
 			requestedAt: new Date(requestedAt),
-			data: head ? undefined : response.data.buffer,
+			data: head ? undefined : (response.data as Buffer).buffer,
 		};
 	}
 

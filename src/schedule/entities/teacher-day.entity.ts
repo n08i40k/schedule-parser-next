@@ -5,21 +5,20 @@ import {
 	IsString,
 	ValidateNested,
 } from "class-validator";
-import { Transform, Type } from "class-transformer";
-import { LessonDto } from "./lesson.dto";
+import { Type } from "class-transformer";
+import TeacherLesson from "./teacher-lesson.entity";
+import {
+	ClassTransformerCtor,
+	Ctor,
+} from "../../utility/class-trasformer/class-transformer-ctor";
 
-export class DayDto {
+@ClassTransformerCtor()
+export default class TeacherDay extends Ctor<TeacherDay> {
 	/**
 	 * День недели
 	 * @example "Понедельник"
 	 */
 	@IsString()
-	@Transform(({ value, obj, options }) => {
-		if ((obj as DayDto).street && options?.groups?.includes("v1"))
-			return `${value} | ${(obj as DayDto).street}`;
-
-		return value;
-	})
 	name: string;
 
 	/**
@@ -27,11 +26,6 @@ export class DayDto {
 	 * @example "Железнодорожная, 13"
 	 */
 	@IsString()
-	@Transform(({ value, options }) => {
-		if (value && options?.groups?.includes("v1")) return undefined;
-
-		return value;
-	})
 	@IsOptional()
 	street?: string;
 
@@ -47,6 +41,6 @@ export class DayDto {
 	 */
 	@IsArray()
 	@ValidateNested({ each: true })
-	@Type(() => LessonDto)
-	lessons: Array<LessonDto>;
+	@Type(() => TeacherLesson)
+	lessons: Array<TeacherLesson>;
 }

@@ -1,20 +1,21 @@
 import {
 	ConflictException,
 	Injectable,
-	NotAcceptableException,
-	NotFoundException,
 	UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { UsersService } from "../users/users.service";
-import { genSalt, hash } from "bcrypt";
-import { Prisma } from "@prisma/client";
-import { Types } from "mongoose";
-import { UserRole } from "../users/user-role.enum";
-import { User } from "../users/entity/user.entity";
-import { SignInDto } from "./dto/sign-in.dto";
-import { SignUpDto } from "./dto/sign-up.dto";
-import { ChangePasswordDto } from "./dto/change-password.dto";
+import { compare, genSalt, hash } from "bcrypt";
+import UserRole from "../users/user-role.enum";
+import User from "../users/entity/user.entity";
+import ChangePasswordDto from "./dto/change-password.dto";
+import axios from "axios";
+import SignInErrorDto, { SignInErrorCode } from "./dto/sign-in-error.dto";
+import { SignUpDto, SignUpVKDto } from "./dto/sign-up.dto";
+import SignUpErrorDto, { SignUpErrorCode } from "./dto/sign-up-error.dto";
+import { SignInDto, SignInVKDto } from "./dto/sign-in.dto";
+import ObjectID from "bson-objectid";
+import UserDto from "../users/dto/user.dto";
 
 @Injectable()
 export class AuthService {
@@ -51,110 +52,122 @@ export class AuthService {
 		return user;
 	}
 
-	/**
-	 * Регистрация нового пользователя
-	 * @param signUp - данные нового пользователя
-	 * @returns {User} - пользователь
-	 * @throws {NotAcceptableException} - передана недопустимая роль
-	 * @throws {ConflictException} - пользователь с таким именем уже существует
-	 * @async
-	 */
-	async signUp(signUp: SignUpDto): Promise<User> {
-		const group = signUp.group.replaceAll(" ", "");
-		const username = signUp.username.trim();
+	async signUp(signUpDto: SignUpDto): Promise<UserDto | SignUpErrorDto> {
+		if (![UserRole.STUDENT, UserRole.TEACHER].includes(signUpDto.role))
+			return new SignUpErrorDto(SignUpErrorCode.DISALLOWED_ROLE);
 
-		if (![UserRole.STUDENT, UserRole.TEACHER].includes(signUp.role))
-			throw new NotAcceptableException("Передана неизвестная роль");
+		if (await this.usersService.contains({ username: signUpDto.username }))
+			return new SignUpErrorDto(SignUpErrorCode.USERNAME_ALREADY_EXISTS);
 
-		if (await this.usersService.contains({ username: username })) {
-			throw new ConflictException(
-				"Пользователь с таким именем уже существует!",
-			);
-		}
+		const id = ObjectID().toHexString();
 
-		const salt = await genSalt(8);
-		const id = new Types.ObjectId().toString("hex");
-
-		const input: Prisma.UserCreateInput = {
-			id: id,
-			username: username,
-			salt: salt,
-			password: await hash(signUp.password, salt),
-			accessToken: await this.jwtService.signAsync({
+		return UserDto.fromPlain(
+			await this.usersService.create({
 				id: id,
+				username: signUpDto.username,
+				password: await hash(signUpDto.password, await genSalt(8)),
+				accessToken: await this.jwtService.signAsync({ id: id }),
+				group: signUpDto.group,
+				role: signUpDto.role,
+				version: signUpDto.version,
 			}),
-			role: signUp.role as UserRole,
-			group: group,
-			version: signUp.version ?? "1.0.0",
-		};
-
-		return await this.usersService.create(input);
+			["auth"],
+		);
 	}
 
-	/**
-	 * Авторизация пользователя
-	 * @param signIn - данные авторизации
-	 * @returns {User} - пользователь
-	 * @throws {UnauthorizedException} - некорректное имя пользователя или пароль
-	 * @async
-	 */
-	async signIn(signIn: SignInDto): Promise<User> {
+	async signIn(signIn: SignInDto): Promise<UserDto | SignInErrorDto> {
 		const user = await this.usersService.findUnique({
 			username: signIn.username,
 		});
 
-		if (
-			!user ||
-			user.password !== (await hash(signIn.password, user.salt))
-		) {
-			throw new UnauthorizedException(
-				"Некорректное имя пользователя или пароль!",
-			);
-		}
+		if (!user || !(await compare(signIn.password, user.password)))
+			return new SignInErrorDto(SignInErrorCode.INCORRECT_CREDENTIALS);
 
-		const accessToken = await this.jwtService.signAsync({ id: user.id });
-
-		return await this.usersService.update({
-			where: { id: user.id },
-			data: { accessToken: accessToken },
-		});
+		return UserDto.fromPlain(
+			await this.usersService.update({
+				where: { id: user.id },
+				data: {
+					accessToken: await this.jwtService.signAsync({
+						id: user.id,
+					}),
+				},
+			}),
+			["auth"],
+		);
 	}
 
-	/**
-	 * Обновление токена пользователя
-	 * @param oldToken - старый токен
-	 * @returns {User} - пользователь
-	 * @throws {NotFoundException} - некорректный или недействительный токен
-	 * @throws {NotFoundException} - токен указывает на несуществующего пользователя
-	 * @throws {NotFoundException} - текущий токен устарел и был обновлён на новый
-	 * @async
-	 */
-	async updateToken(oldToken: string): Promise<User> {
-		if (
-			!(await this.jwtService.verifyAsync(oldToken, {
-				ignoreExpiration: true,
-			}))
-		) {
-			throw new NotFoundException(
-				"Некорректный или недействительный токен!",
-			);
-		}
+	private static async parseVKID(accessToken: string): Promise<number> {
+		const form = new FormData();
+		form.append("access_token", accessToken);
+		form.append("v", "5.199");
 
-		const jwtUser: { id: string } = await this.jwtService.decode(oldToken);
+		const response = await axios.post(
+			"https://api.vk.com/method/account.getProfileInfo",
+			form,
+			{ responseType: "json" },
+		);
 
-		const user = await this.usersService.findUnique({ id: jwtUser.id });
-		if (!user || user.accessToken !== oldToken) {
-			throw new NotFoundException(
-				"Некорректный или недействительный токен!",
-			);
-		}
+		const data: { error?: any; response?: { id: number } } =
+			response.data as object;
+
+		if (response.status !== 200 || data.error !== undefined) return null;
+
+		return data.response.id;
+	}
+
+	async signUpVK(signUpDto: SignUpVKDto): Promise<UserDto | SignUpErrorDto> {
+		if (![UserRole.STUDENT, UserRole.TEACHER].includes(signUpDto.role))
+			return new SignUpErrorDto(SignUpErrorCode.DISALLOWED_ROLE);
+
+		if (await this.usersService.contains({ username: signUpDto.username }))
+			return new SignUpErrorDto(SignUpErrorCode.USERNAME_ALREADY_EXISTS);
+
+		const vkId = await AuthService.parseVKID(signUpDto.accessToken);
+		if (!vkId)
+			return new SignUpErrorDto(SignUpErrorCode.INVALID_VK_ACCESS_TOKEN);
+
+		if (await this.usersService.contains({ vkId: vkId }))
+			return new SignUpErrorDto(SignUpErrorCode.VK_ALREADY_EXISTS);
+
+		const id = ObjectID().toHexString();
+
+		return UserDto.fromPlain(
+			await this.usersService.create({
+				id: id,
+				username: signUpDto.username,
+				password: await hash(await genSalt(8), await genSalt(8)),
+				vkId: vkId,
+				accessToken: await this.jwtService.signAsync({
+					id: id,
+				}),
+				role: signUpDto.role,
+				group: signUpDto.group,
+				version: signUpDto.version,
+			}),
+			["auth"],
+		);
+	}
+
+	async signInVK(
+		signInVKDto: SignInVKDto,
+	): Promise<UserDto | SignInErrorDto> {
+		const vkId = await AuthService.parseVKID(signInVKDto.accessToken);
+		if (!vkId)
+			return new SignInErrorDto(SignInErrorCode.INVALID_VK_ACCESS_TOKEN);
+
+		const user = await this.usersService.findOne({ vkId: vkId });
+		if (!user)
+			return new SignInErrorDto(SignInErrorCode.INCORRECT_CREDENTIALS);
 
 		const accessToken = await this.jwtService.signAsync({ id: user.id });
 
-		return await this.usersService.update({
-			where: { id: user.id },
-			data: { accessToken: accessToken },
-		});
+		return UserDto.fromPlain(
+			await this.usersService.update({
+				where: { id: user.id },
+				data: { accessToken: accessToken },
+			}),
+			["auth"],
+		);
 	}
 
 	/**

@@ -1,6 +1,6 @@
 import { IsString } from "class-validator";
 
-export class ChangePasswordDto {
+export default class ChangePasswordDto {
 	/**
 	 * Старый пароль
 	 * @example "my-old-password"

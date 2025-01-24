@@ -1,6 +1,11 @@
 import { IsNumber, IsOptional, IsString } from "class-validator";
+import {
+	ClassTransformerCtor,
+	Ctor,
+} from "../../utility/class-trasformer/class-transformer-ctor";
 
-export class LessonSubGroupDto {
+@ClassTransformerCtor()
+export default class LessonSubGroup extends Ctor<LessonSubGroup> {
 	/**
 	 * Номер подгруппы
 	 * @example 1

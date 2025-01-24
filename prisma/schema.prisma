@@ -35,8 +35,9 @@ model User {
   //
   username    String   @unique
   //
-  salt        String
   password    String
+  //
+  vkId        Int?
   //
   accessToken String   @unique
   //

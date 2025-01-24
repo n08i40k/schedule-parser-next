@@ -4,7 +4,7 @@ import { XlsDownloaderInterface } from "./xls-downloader.interface";
 describe("BasicXlsDownloader", () => {
 	let downloader: XlsDownloaderInterface;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		downloader = new BasicXlsDownloader();
 	});
 

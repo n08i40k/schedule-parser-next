@@ -1,6 +1,6 @@
 import { IsNumber } from "class-validator";
 
-export class ClearScheduleReplacerDto {
+export default class ClearReplacerDto {
 	/**
 	 * Количество удалённых заменителей расписания
 	 * @example 1

@@ -18,17 +18,12 @@ export function NullIf(
 			constraints: [canBeNull],
 			validator: {
 				validate(value: any, args: ValidationArguments) {
-					const canBeNullFunc: (cls: object) => boolean =
-						args.constraints[0];
-
-					const canBeNull = canBeNullFunc(args.object);
-					const currentValue = value;
+					const canBeNull = (
+						args.constraints[0] as (cls: object) => boolean
+					)(args.object);
 
 					// Логика валидации: если одно из полей null, то другое тоже должно быть null
-
-					return canBeNull
-						? currentValue !== null
-						: currentValue === null;
+					return canBeNull ? value !== null : value === null;
 				},
 				defaultMessage(args: ValidationArguments) {
 					return `${args.property} must be ${args.property === null ? "non-null" : "null"}!`;

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { SetScheduleReplacerDto } from "./dto/set-schedule-replacer.dto";
+import SetScheduleReplacerDto from "./dto/set-schedule-replacer.dto";
 import { plainToInstance } from "class-transformer";
 
 @Injectable()

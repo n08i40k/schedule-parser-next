@@ -1,6 +1,6 @@
 import { IsArray } from "class-validator";
 
-export class ScheduleTeacherNamesDto {
+export default class TeacherNamesDto {
 	/**
 	 * Группы
 	 * @example ["Хомченко Н.Е."]

@@ -13,7 +13,6 @@ import { FirebaseAdminModule } from "./firebase-admin/firebase-admin.module";
 		CacheModule.register({ ttl: 5 * 60 * 1000, isGlobal: true }),
 		FirebaseAdminModule,
 	],
-	controllers: [],
 	providers: [],
 })
 export class AppModule {}

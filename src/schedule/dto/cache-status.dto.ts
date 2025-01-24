@@ -1,6 +1,6 @@
 import { IsBoolean, IsHash, IsNumber } from "class-validator";
 
-export class CacheStatusDto {
+export default class CacheStatusDto {
 	/**
 	 * Хеш данных парсера
 	 * @example "40bd001563085fc35165329ea1ff5c5ecbdbbeef"

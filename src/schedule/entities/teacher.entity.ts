@@ -1,8 +1,13 @@
 import { IsArray, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
-import { TeacherDayDto } from "./teacher-day.dto";
+import TeacherDay from "./teacher-day.entity";
+import {
+	ClassTransformerCtor,
+	Ctor,
+} from "../../utility/class-trasformer/class-transformer-ctor";
 
-export class TeacherDto {
+@ClassTransformerCtor()
+export default class Teacher extends Ctor<Teacher> {
 	/**
 	 * ФИО преподавателя
 	 * @example "Хомченко Н.Е."
@@ -15,6 +20,6 @@ export class TeacherDto {
 	 */
 	@IsArray()
 	@ValidateNested({ each: true })
-	@Type(() => TeacherDayDto)
-	days: Array<TeacherDayDto>;
+	@Type(() => TeacherDay)
+	days: Array<TeacherDay>;
 }

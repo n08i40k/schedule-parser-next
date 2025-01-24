@@ -20,11 +20,11 @@ import {
 	ApiTags,
 } from "@nestjs/swagger";
 import { ResultDto } from "src/utility/validation/class-validator.interceptor";
-import { UserRole } from "../users/user-role.enum";
-import { ScheduleReplacerDto } from "./dto/schedule-replacer.dto";
-import { ClearScheduleReplacerDto } from "./dto/clear-schedule-replacer.dto";
 import { plainToInstance } from "class-transformer";
 import { ScheduleService } from "./schedule.service";
+import UserRole from "../users/user-role.enum";
+import ReplacerDto from "./dto/replacer.dto";
+import ClearReplacerDto from "./dto/clear-replacer.dto";
 
 @ApiTags("v1/schedule-replacer")
 @ApiBearerAuth()
@@ -69,13 +69,13 @@ export class ScheduleReplacerController {
 	@HttpCode(HttpStatus.OK)
 	@AuthRoles([UserRole.ADMIN])
 	@ResultDto(null) // TODO: Как нибудь сделать проверку в таких случаях
-	async getReplacers(): Promise<ScheduleReplacerDto[]> {
+	async getReplacers(): Promise<ReplacerDto[]> {
 		return await this.scheduleReplaceService.getAll().then((result) => {
 			return result.map((replacer) => {
-				return plainToInstance(ScheduleReplacerDto, {
+				return plainToInstance(ReplacerDto, {
 					etag: replacer.etag,
 					size: replacer.data.byteLength,
-				} as ScheduleReplacerDto);
+				} as ReplacerDto);
 			});
 		});
 	}
@@ -84,13 +84,13 @@ export class ScheduleReplacerController {
 	@ApiResponse({
 		status: HttpStatus.OK,
 		description: "Отчистка прошла успешно",
-		type: ClearScheduleReplacerDto,
+		type: ClearReplacerDto,
 	})
 	@Post("clear")
 	@HttpCode(HttpStatus.OK)
 	@AuthRoles([UserRole.ADMIN])
-	@ResultDto(ClearScheduleReplacerDto)
-	async clear(): Promise<ClearScheduleReplacerDto> {
+	@ResultDto(ClearReplacerDto)
+	async clear(): Promise<ClearReplacerDto> {
 		const response = { count: await this.scheduleReplaceService.clear() };
 
 		await this.scheduleService.refreshCache();

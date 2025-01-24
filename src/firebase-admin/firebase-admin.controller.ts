@@ -15,7 +15,7 @@ import { ResultDto } from "../utility/validation/class-validator.interceptor";
 import { FirebaseAdminService } from "./firebase-admin.service";
 import { FcmPostUpdateDto } from "./dto/fcm-post-update.dto";
 import { isSemVer } from "class-validator";
-import { User } from "../users/entity/user.entity";
+import User from "../users/entity/user.entity";
 import {
 	ApiBearerAuth,
 	ApiBody,
@@ -24,7 +24,7 @@ import {
 	ApiTags,
 } from "@nestjs/swagger";
 import { AuthRoles } from "../auth/auth-role.decorator";
-import { UserRole } from "../users/user-role.enum";
+import UserRole from "../users/user-role.enum";
 import {
 	TokenMessage,
 	TopicMessage,

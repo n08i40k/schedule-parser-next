@@ -1,15 +1,15 @@
-import { V2ScheduleParser, V2ScheduleParseResult } from "./v2-schedule-parser";
+import { ScheduleParser, ScheduleParseResult } from "./schedule-parser";
 import { BasicXlsDownloader } from "../xls-downloader/basic-xls-downloader";
-import { DayDto } from "../../dto/day.dto";
-import { GroupDto } from "../../dto/group.dto";
+import Day from "../../entities/day.entity";
+import Group from "../../entities/group.entity";
 import instanceToInstance2 from "../../../utility/class-trasformer/instance-to-instance-2";
 
-describe("V2ScheduleParser", () => {
-	let parser: V2ScheduleParser;
+describe("ScheduleParser", () => {
+	let parser: ScheduleParser;
 
-	beforeEach(async () => {
+	beforeEach(() => {
 		const xlsDownloader = new BasicXlsDownloader();
-		parser = new V2ScheduleParser(xlsDownloader);
+		parser = new ScheduleParser(xlsDownloader);
 	});
 
 	describe("Ошибки", () => {
@@ -32,10 +32,10 @@ describe("V2ScheduleParser", () => {
 		const schedule = await parser.getSchedule();
 		expect(schedule).toBeDefined();
 
-		const group: GroupDto | undefined = schedule.groups.get("ИС-214/23");
+		const group: Group | undefined = schedule.groups.get("ИС-214/23");
 		expect(group).toBeDefined();
 
-		const monday: DayDto = group.days[0];
+		const monday: Day = group.days[0];
 		expect(monday).toBeDefined();
 
 		const name = monday.name;
@@ -63,14 +63,13 @@ describe("V2ScheduleParser", () => {
 
 		it("Зачёт с оценкой v2", async () => {
 			const schedule = await parser.getSchedule().then((v) =>
-				instanceToInstance2(V2ScheduleParseResult, v, {
+				instanceToInstance2(ScheduleParseResult, v, {
 					groups: ["v2"],
 				}),
 			);
 			expect(schedule).toBeDefined();
 
-			const group: GroupDto | undefined =
-				schedule.groups.get("ИС-214/23");
+			const group: Group | undefined = schedule.groups.get("ИС-214/23");
 			expect(group).toBeDefined();
 
 			const day = group.days[0];

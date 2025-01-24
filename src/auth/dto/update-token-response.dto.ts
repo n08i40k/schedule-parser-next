@@ -1,3 +1,3 @@
-import { UpdateTokenDto } from "./update-token.dto";
+import UpdateTokenDto from "./update-token.dto";
 
-export class UpdateTokenResponseDto extends UpdateTokenDto {}
+export default class UpdateTokenResponseDto extends UpdateTokenDto {}

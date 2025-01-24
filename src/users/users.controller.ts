@@ -1,16 +1,17 @@
 import {
 	Body,
+	ConflictException,
 	Controller,
 	Get,
 	HttpCode,
 	HttpStatus,
+	NotFoundException,
 	Post,
 	UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
 import { ResultDto } from "../utility/validation/class-validator.interceptor";
 import { UserToken } from "../auth/auth.decorator";
-import { AuthService } from "../auth/auth.service";
 import { UsersService } from "./users.service";
 import {
 	ApiBearerAuth,
@@ -19,34 +20,34 @@ import {
 	ApiResponse,
 	ApiTags,
 } from "@nestjs/swagger";
-import { ChangeUsernameDto } from "./dto/change-username.dto";
-import { ChangeGroupDto } from "./dto/change-group.dto";
-import { V1ClientUserDto } from "./dto/v1/v1-client-user.dto";
-import { UserRole } from "./user-role.enum";
+import User from "./entity/user.entity";
+import ChangeUsernameDto from "./dto/change-username.dto";
+import UserRole from "./user-role.enum";
+import ChangeGroupDto from "./dto/change-group.dto";
+import { UserPipe } from "../auth/auth.pipe";
+import { ScheduleService } from "../schedule/schedule.service";
+import UserDto from "./dto/user.dto";
 
 @ApiTags("v1/users")
 @ApiBearerAuth()
 @Controller({ path: "users", version: "1" })
 @UseGuards(AuthGuard)
-export class V1UsersController {
+export class UsersController {
 	constructor(
-		private readonly authService: AuthService,
 		private readonly usersService: UsersService,
+		private readonly scheduleService: ScheduleService,
 	) {}
 
 	@ApiOperation({ summary: "Получение данных о профиле пользователя" })
 	@ApiResponse({
 		status: HttpStatus.OK,
 		description: "Получение профиля прошло успешно",
-		type: V1ClientUserDto,
+		type: UserDto,
 	})
-	@ResultDto(V1ClientUserDto)
-	@HttpCode(HttpStatus.OK)
+	@ResultDto(UserDto)
 	@Get("me")
-	async getMe(@UserToken() token: string): Promise<V1ClientUserDto> {
-		return V1ClientUserDto.fromUser(
-			await this.authService.decodeUserToken(token),
-		);
+	getMe(@UserToken(UserPipe) user: User): UserDto {
+		return user.toDto();
 	}
 
 	@ApiOperation({ summary: "Смена имени пользователя" })
@@ -63,17 +64,30 @@ export class V1UsersController {
 	@HttpCode(HttpStatus.OK)
 	@Post("change-username")
 	async changeUsername(
-		@Body() reqDto: ChangeUsernameDto,
-		@UserToken() token: string,
+		@Body() changeUsernameDto: ChangeUsernameDto,
+		@UserToken(UserPipe) user: User,
 	): Promise<void> {
-		const user = await this.authService.decodeUserToken(token);
-
-		reqDto.username =
+		changeUsernameDto.username =
 			user.role == UserRole.ADMIN
-				? reqDto.username
-				: reqDto.username.replace(/\s/g, "");
+				? changeUsernameDto.username
+				: changeUsernameDto.username.replace(/\s/g, "");
 
-		return await this.usersService.changeUsername(user, reqDto);
+		if (user.username === changeUsernameDto.username) return;
+
+		if (
+			await this.usersService.contains({
+				username: changeUsernameDto.username,
+			})
+		) {
+			throw new ConflictException(
+				"Пользователь с таким именем уже существует",
+			);
+		}
+
+		await this.usersService.update({
+			where: { id: user.id },
+			data: { username: changeUsernameDto.username },
+		});
 	}
 
 	@ApiOperation({ summary: "Смена группы пользователя" })
@@ -90,11 +104,21 @@ export class V1UsersController {
 	@HttpCode(HttpStatus.OK)
 	@Post("change-group")
 	async changeGroup(
-		@Body() reqDto: ChangeGroupDto,
-		@UserToken() token: string,
+		@Body() changeGroupDto: ChangeGroupDto,
+		@UserToken(UserPipe) user: User,
 	): Promise<void> {
-		const user = await this.authService.decodeUserToken(token);
+		if (user.group === changeGroupDto.group) return;
 
-		return await this.usersService.changeGroup(user, reqDto);
+		const groupNames = await this.scheduleService.getGroupNames();
+		if (!groupNames.names.includes(changeGroupDto.group)) {
+			throw new NotFoundException(
+				"Группа с таким названием не существует",
+			);
+		}
+
+		await this.usersService.update({
+			where: { id: user.id },
+			data: { group: changeGroupDto.group },
+		});
 	}
 }

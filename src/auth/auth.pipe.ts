@@ -6,7 +6,7 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { UsersService } from "../users/users.service";
 
-import { User } from "../users/entity/user.entity";
+import User from "../users/entity/user.entity";
 
 @Injectable()
 export class UserPipe implements PipeTransform {
@@ -25,6 +25,6 @@ export class UserPipe implements PipeTransform {
 		if (!user)
 			throw new UnauthorizedException("Передан некорректный токен!");
 
-		return user as User;
+		return user;
 	}
 }
