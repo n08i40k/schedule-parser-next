@@ -3,6 +3,11 @@ import * as process from "node:process";
 
 configDotenv();
 
+export const vkIdConstants = {
+	clientId: +process.env.VKID_CLIENT_ID,
+	redirectUri: process.env.VKID_REDIRECT_URI,
+};
+
 export const jwtConstants = {
 	secret: process.env.JWT_SECRET,
 };
