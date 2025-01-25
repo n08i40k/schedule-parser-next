@@ -53,7 +53,7 @@ async function bootstrap() {
 
 	SwaggerModule.setup("api-docs", app, swaggerDocument, {});
 
-	await app.listen(apiConstants.port);
+	await app.listen(apiConstants.port, "0.0.0.0");
 }
 
 bootstrap().then();
