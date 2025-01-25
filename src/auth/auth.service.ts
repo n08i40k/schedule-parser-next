@@ -1,6 +1,7 @@
 import {
 	ConflictException,
 	Injectable,
+	NotAcceptableException,
 	UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
@@ -15,8 +16,8 @@ import SignUpErrorDto, { SignUpErrorCode } from "./dto/sign-up-error.dto";
 import { SignInDto, SignInVKDto } from "./dto/sign-in.dto";
 import ObjectID from "bson-objectid";
 import UserDto from "../users/dto/user.dto";
-import { decodeJwt, verifyJwtSignature } from "firebase-admin/lib/utils/jwt";
 import { vkIdConstants } from "../contants";
+import * as jwt from "jsonwebtoken";
 
 @Injectable()
 export class AuthService {
@@ -136,16 +137,6 @@ export class AuthService {
 	 * }
 	 */
 	private static async parseVKID(idToken: string): Promise<number> {
-		try {
-			await verifyJwtSignature(idToken, vkIdConstants.jwtPubKey, {
-				issuer: "VK",
-				jwtid: "21",
-			});
-		} catch {
-			return null;
-		}
-
-		const decodedToken = await decodeJwt(idToken);
 		type TokenData = {
 			iis: string;
 			sub: number;
@@ -155,9 +146,45 @@ export class AuthService {
 			jti: number;
 		};
 
-		const payload = decodedToken.payload as TokenData;
+		const payload = await new Promise<TokenData>((resolve, reject) => {
+			jwt.verify(idToken, vkIdConstants.jwtPubKey, (err, data) => {
+				if (err) return reject(new NotAcceptableException(err.message));
 
-		if (payload.app !== vkIdConstants.clientId) return null;
+				const payload = data as unknown as TokenData;
+
+				if (typeof payload !== "object") {
+					return reject(
+						new NotAcceptableException("Invalid token payload"),
+					);
+				}
+
+				if (payload.iis !== "VK") {
+					return reject(
+						new NotAcceptableException(
+							`Unknown issuer, excepted "VK", got "${payload.iis}"`,
+						),
+					);
+				}
+
+				if (payload.jti !== 21) {
+					return reject(
+						new NotAcceptableException(
+							`Unknown type, excepted 21, got ${payload.jti}`,
+						),
+					);
+				}
+
+				if (payload.app !== vkIdConstants.clientId) {
+					return reject(
+						new NotAcceptableException(
+							`Invalid client_id ${payload.app}`,
+						),
+					);
+				}
+
+				resolve(payload);
+			});
+		});
 
 		return payload.sub;
 	}

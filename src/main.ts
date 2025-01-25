@@ -20,6 +20,7 @@ async function bootstrap() {
 		enableDebugMessages: true,
 		forbidNonWhitelisted: true,
 		strictGroups: true,
+		forbidUnknownValues: true,
 	};
 	app.useGlobalPipes(new PartialValidationPipe(validatorOptions));
 	app.useGlobalInterceptors(new ClassValidatorInterceptor(validatorOptions));

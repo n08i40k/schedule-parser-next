@@ -38,8 +38,6 @@ export class VKIDController {
 		const result = await this.vkidService.oauth(oAuthRequestDto);
 		if (!result) throw new NotAcceptableException("OAuth process failed");
 
-		console.log("Access token exchanged!", result.accessToken);
-
 		return result;
 	}
 }
