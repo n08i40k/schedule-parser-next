@@ -3,7 +3,7 @@ import { XlsDownloaderInterface } from "../xls-downloader/xls-downloader.interfa
 import * as XLSX from "xlsx";
 import { Range, WorkSheet } from "xlsx";
 import { toNormalString, trimAll } from "../../../utility/string.util";
-import { plainToClass, plainToInstance, Type } from "class-transformer";
+import { plainToInstance, Type } from "class-transformer";
 import * as objectHash from "object-hash";
 import LessonTime from "../../entities/lesson-time.entity";
 import { LessonType } from "../../enum/lesson-type.enum";
@@ -607,7 +607,7 @@ export class ScheduleParser {
 	}
 
 	private static readonly consultationRegExp = /\(?[кК]онсультация\)?/;
-	private static readonly otherStreetRegExp = /^[А-Я][а-я]+,\s?[0-9]+$/;
+	private static readonly otherStreetRegExp = /^[А-Я][а-я]+,?\s?[0-9]+$/;
 
 	private static parseLesson(
 		workSheet: XLSX.Sheet,
@@ -689,17 +689,25 @@ export class ScheduleParser {
 				column + 1,
 			);
 
+			// Если количество кабинетов равно 1, назначаем этот кабинет всем подгруппам
 			if (cabinets.length === 1) {
 				// eslint-disable-next-line @typescript-eslint/no-for-in-array
 				for (const index in lessonData.subGroups)
-					lessonData.subGroups[index].cabinet = cabinets[0];
-			} else if (cabinets.length === lessonData.subGroups.length) {
+					lessonData.subGroups[index].cabinet = cabinets[0] ?? "";
+			}
+			// Если количество кабинетов совпадает с количеством подгрупп, назначаем кабинеты по порядку
+			else if (cabinets.length === lessonData.subGroups.length) {
 				// eslint-disable-next-line @typescript-eslint/no-for-in-array
 				for (const index in lessonData.subGroups) {
 					lessonData.subGroups[index].cabinet =
-						cabinets[lessonData.subGroups[index].number - 1];
+						cabinets[lessonData.subGroups[index].number - 1] ??
+						cabinets[0] ??
+						"";
 				}
-			} else if (cabinets.length !== 0) {
+			}
+			// Если количество кабинетов не равно нулю, но не совпадает с количеством подгрупп
+			else if (cabinets.length !== 0) {
+				// Если кабинетов больше, чем подгрупп, добавляем новые подгруппы с ошибкой
 				if (cabinets.length > lessonData.subGroups.length) {
 					// eslint-disable-next-line @typescript-eslint/no-for-in-array
 					for (const index in cabinets) {
@@ -717,7 +725,14 @@ export class ScheduleParser {
 
 						lessonData.subGroups[index].cabinet = cabinets[index];
 					}
-				} else throw new Error("Разное кол-во кабинетов и подгрупп!");
+				}
+				// Если кабинетов меньше, чем подгрупп, выбрасываем ошибку
+				else throw new Error("Разное кол-во кабинетов и подгрупп!");
+			}
+			// Если кабинетов нет, но есть подгруппы, назначаем им значение "??"
+			else if (lessonData.subGroups.length !== 0) {
+				for (const subGroup of lessonData.subGroups)
+					subGroup.cabinet = "??";
 			}
 		}
 

@@ -25,12 +25,12 @@ export class AuthService {
 	) {}
 
 	/**
-	 * Получение пользователя по его токену
-	 * @param token - jwt токен
-	 * @returns {User} - пользователь
-	 * @throws {UnauthorizedException} - некорректный или недействительный токен
-	 * @throws {UnauthorizedException} - токен указывает на несуществующего пользователя
-	 * @throws {UnauthorizedException} - текущий токен устарел и был обновлён на новый
+	 * Получает пользователя по его JWT токену
+	 * @param {string} token - JWT токен для аутентификации
+	 * @returns {Promise<User>} - Объект пользователя, если токен валиден
+	 * @throws {UnauthorizedException} - Если токен некорректен или недействителен
+	 * @throws {UnauthorizedException} - Если пользователь, указанный в токене, не существует
+	 * @throws {UnauthorizedException} - Если токен устарел и был заменён на новый
 	 * @async
 	 */
 	async decodeUserToken(token: string): Promise<User> {
@@ -52,6 +52,13 @@ export class AuthService {
 		return user;
 	}
 
+	/**
+	 * Регистрирует нового пользователя в системе.
+	 *
+	 * @param signUpDto - Объект с данными для регистрации, включая имя пользователя, пароль, роль и группу.
+	 * @returns Возвращает объект UserDto с данными зарегистрированного пользователя или объект SignUpErrorDto в случае ошибки.
+	 * @throws SignUpErrorDto - Если роль пользователя недопустима или имя пользователя уже существует.
+	 */
 	async signUp(signUpDto: SignUpDto): Promise<UserDto | SignUpErrorDto> {
 		if (![UserRole.STUDENT, UserRole.TEACHER].includes(signUpDto.role))
 			return new SignUpErrorDto(SignUpErrorCode.DISALLOWED_ROLE);
@@ -75,6 +82,23 @@ export class AuthService {
 		);
 	}
 
+	/**
+	 * Асинхронная функция для входа пользователя в систему.
+	 *
+	 * @param {SignInDto} signIn - Объект, содержащий данные для входа (имя пользователя и пароль).
+	 * @returns {Promise<UserDto | SignInErrorDto>} - Возвращает объект UserDto в случае успешного входа или SignInErrorDto в случае ошибки.
+	 *
+	 * @throws {SignInErrorDto} - Если пользователь не найден или пароль неверный, возвращается объект SignInErrorDto с кодом ошибки INCORRECT_CREDENTIALS.
+	 *
+	 * @example
+	 * const signInData = { username: 'user123', password: 'password123' };
+	 * const result = await signIn(signInData);
+	 * if (result instanceof UserDto) {
+	 *   console.log('Вход выполнен успешно:', result);
+	 * } else {
+	 *   console.log('Ошибка входа:', result);
+	 * }
+	 */
 	async signIn(signIn: SignInDto): Promise<UserDto | SignInErrorDto> {
 		const user = await this.usersService.findUnique({
 			username: signIn.username,
@@ -96,6 +120,20 @@ export class AuthService {
 		);
 	}
 
+	/**
+	 * Парсит VK ID пользователя по access token
+	 *
+	 * @param accessToken - Access token пользователя VK
+	 * @returns Promise, который разрешается в VK ID пользователя или null в случае ошибки
+	 *
+	 * @example
+	 * const vkId = await parseVKID('access_token_here');
+	 * if (vkId) {
+	 *   console.log(`VK ID пользователя: ${vkId}`);
+	 * } else {
+	 *   console.error('Ошибка при получении VK ID');
+	 * }
+	 */
 	private static async parseVKID(accessToken: string): Promise<number> {
 		const form = new FormData();
 		form.append("access_token", accessToken);
@@ -115,6 +153,12 @@ export class AuthService {
 		return data.response.id;
 	}
 
+	/**
+	 * Регистрация пользователя через VK
+	 * @param signUpDto - DTO с данными для регистрации через VK
+	 * @returns Promise<UserDto | SignUpErrorDto> - возвращает DTO пользователя в случае успешной регистрации
+	 * или DTO ошибки в случае возникновения проблем
+	 */
 	async signUpVK(signUpDto: SignUpVKDto): Promise<UserDto | SignUpErrorDto> {
 		if (![UserRole.STUDENT, UserRole.TEACHER].includes(signUpDto.role))
 			return new SignUpErrorDto(SignUpErrorCode.DISALLOWED_ROLE);
@@ -148,6 +192,11 @@ export class AuthService {
 		);
 	}
 
+	/**
+	 * Авторизация пользователя через VK
+	 * @param signInVKDto - DTO с данными для авторизации через VK
+	 * @returns Promise<UserDto | SignInErrorDto> - возвращает DTO пользователя в случае успешной авторизации или DTO ошибки в случае неудачи
+	 */
 	async signInVK(
 		signInVKDto: SignInVKDto,
 	): Promise<UserDto | SignInErrorDto> {
@@ -172,11 +221,12 @@ export class AuthService {
 
 	/**
 	 * Смена пароля пользователя
-	 * @param user - пользователь
-	 * @param changePassword - старый и новый пароли
-	 * @throws {ConflictException} - пароли идентичны
-	 * @throws {UnauthorizedException} - неверный исходный пароль
+	 * @param user - пользователь, для которого меняется пароль
+	 * @param changePassword - объект, содержащий старый и новый пароли
+	 * @throws {ConflictException} - выбрасывается, если старый и новый пароли идентичны
+	 * @throws {UnauthorizedException} - выбрасывается, если передан неверный исходный пароль
 	 * @async
+	 * @returns {Promise<void>} - возвращает Promise, который разрешается, когда пароль успешно изменен
 	 */
 	async changePassword(
 		user: User,
@@ -187,13 +237,13 @@ export class AuthService {
 		if (oldPassword == newPassword)
 			throw new ConflictException("Пароли идентичны");
 
-		if (user.password !== (await hash(oldPassword, user.salt)))
+		if (!(await compare(oldPassword, user.password)))
 			throw new UnauthorizedException("Передан неверный исходный пароль");
 
 		await this.usersService.update({
 			where: { id: user.id },
 			data: {
-				password: await hash(newPassword, user.salt),
+				password: await hash(newPassword, await genSalt(8)),
 			},
 		});
 	}

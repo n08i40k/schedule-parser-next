@@ -34,13 +34,6 @@ export default class User {
 	username: string;
 
 	/**
-	 * Соль пароля
-	 * @example "$2b$08$34xwFv1WVJpvpVi3tZZuv."
-	 */
-	@IsString()
-	salt: string;
-
-	/**
 	 * Хеш пароля
 	 * @example "$2b$08$34xwFv1WVJpvpVi3tZZuv."
 	 */

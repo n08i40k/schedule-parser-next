@@ -27,7 +27,7 @@ enum UserRole {
 
 type FCM {
   token  String
-  topics Json
+  topics String[]
 }
 
 model User {

@@ -16,14 +16,14 @@ export default class CacheStatusDto {
 	cacheUpdateRequired: boolean;
 
 	/**
-	 * Дата обновления кеша
+	 * Время последнего обновления кеша в формате timestamp
 	 * @example 1729288173002
 	 */
 	@IsNumber()
 	lastCacheUpdate: number;
 
 	/**
-	 * Дата обновления расписания
+	 * Время последнего обновления расписания в формате timestamp
 	 * @example 1729288173002
 	 */
 	@IsNumber()

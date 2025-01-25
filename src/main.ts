@@ -3,8 +3,7 @@ import { AppModule } from "./app.module";
 import { ValidatorOptions } from "class-validator";
 import { PartialValidationPipe } from "./utility/validation/partial-validation.pipe";
 import { ClassValidatorInterceptor } from "./utility/validation/class-validator.interceptor";
-import { apiConstants, httpsConstants } from "./contants";
-import * as fs from "node:fs";
+import { apiConstants } from "./contants";
 import { VersioningType } from "@nestjs/common";
 import {
 	FastifyAdapter,
@@ -16,12 +15,6 @@ async function bootstrap() {
 	const app = await NestFactory.create<NestFastifyApplication>(
 		AppModule,
 		new FastifyAdapter(),
-		{
-			httpsOptions: {
-				cert: fs.readFileSync(httpsConstants.certPath),
-				key: fs.readFileSync(httpsConstants.keyPath),
-			},
-		},
 	);
 	const validatorOptions: ValidatorOptions = {
 		enableDebugMessages: true,
@@ -33,13 +26,13 @@ async function bootstrap() {
 	app.enableCors();
 
 	app.setGlobalPrefix("api");
-	app.enableVersioning({
-		type: VersioningType.URI,
-	});
+	app.enableVersioning({ type: VersioningType.URI });
 
 	const swaggerConfig = new DocumentBuilder()
 		.setTitle("Schedule Parser")
-		.setDescription("Парсер расписания")
+		.setDescription(
+			"API для парсинга и управления расписанием учебных занятий",
+		)
 		.setVersion(apiConstants.version)
 		.build();
 
@@ -49,8 +42,12 @@ async function bootstrap() {
 
 	swaggerDocument.servers = [
 		{
-			url: `https://localhost:${apiConstants.port}`,
-			description: "Локальный сервер для разработки",
+			url: "https://polytechnic-dev.n08i40k.ru",
+			description: "Сервер для разработки и тестирования",
+		},
+		{
+			url: "https://polytechnic.n08i40k.ru",
+			description: "Сервер для продакшн окружения",
 		},
 	];
 

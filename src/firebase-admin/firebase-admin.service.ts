@@ -86,17 +86,17 @@ export class FirebaseAdminService implements OnModuleInit {
 		if (!user.fcm) throw new Error("User does not have fcm data!");
 
 		const fcm = user.fcm;
-		const newTopics = new Set<string>();
+		const userTopics = new Set<string>([...fcm.topics]);
 
 		for (const topic of topics) {
 			if (!fcm.topics.includes(topic)) continue;
 
 			await this.messaging.unsubscribeFromTopic(fcm.token, topic);
-			newTopics.add(topic);
+			userTopics.delete(topic);
 		}
-		if (newTopics.size === fcm.topics.length) return user;
+		if (userTopics.size === fcm.topics.length) return user;
 
-		fcm.topics = Array.from(newTopics);
+		fcm.topics = Array.from(userTopics);
 
 		return await this.usersService.update({
 			where: { id: user.id },
@@ -118,10 +118,12 @@ export class FirebaseAdminService implements OnModuleInit {
 			if (force)
 				await this.messaging.unsubscribeFromTopic(fcm.token, topic);
 			else if (fcm.topics.includes(topic)) continue;
-			else newTopics.add(topic);
+
+			newTopics.add(topic);
 
 			await this.messaging.subscribeToTopic(fcm.token, topic);
 		}
+
 		if (newTopics.size === fcm.topics.length) return user;
 
 		fcm.topics = Array.from(newTopics);

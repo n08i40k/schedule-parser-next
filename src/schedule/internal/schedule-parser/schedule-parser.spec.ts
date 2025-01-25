@@ -69,13 +69,14 @@ describe("ScheduleParser", () => {
 			);
 			expect(schedule).toBeDefined();
 
-			const group: Group | undefined = schedule.groups.get("ИС-214/23");
+			const group: Group | undefined = schedule.groups.get("ИС-114/23");
 			expect(group).toBeDefined();
 
 			const day = group.days[0];
 			expect(day).toBeDefined();
 
 			expect(day.lessons.length).toBeGreaterThan(0);
+			expect(day.lessons[0].name).toBe("Линейка");
 		});
 	});
 });

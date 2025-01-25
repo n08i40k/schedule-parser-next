@@ -17,6 +17,9 @@ import TeacherSchedule from "./entities/teacher-schedule.entity";
 import GetGroupNamesDto from "./dto/get-group-names.dto";
 import TeacherNamesDto from "./dto/teacher-names.dto";
 
+/**
+ * Сервис для работы с расписанием
+ */
 @Injectable()
 export class ScheduleService {
 	readonly scheduleParser: ScheduleParser;
@@ -26,6 +29,12 @@ export class ScheduleService {
 
 	private scheduleUpdatedAt: Date = new Date(0);
 
+	/**
+	 * Конструктор сервиса
+	 * @param cacheManager Менеджер кэша
+	 * @param scheduleReplacerService Сервис замены расписания
+	 * @param firebaseAdminService Сервис работы с Firebase
+	 */
 	constructor(
 		@Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
 		private readonly scheduleReplacerService: ScheduleReplacerService,
@@ -54,6 +63,10 @@ export class ScheduleService {
 		);
 	}
 
+	/**
+	 * Получение статуса кэша
+	 * @returns Объект с информацией о состоянии кэша
+	 */
 	getCacheStatus(): CacheStatusDto {
 		return plainToInstance(CacheStatusDto, {
 			cacheHash: this.cacheHash,
@@ -65,6 +78,10 @@ export class ScheduleService {
 		});
 	}
 
+	/**
+	 * Получение исходного расписания
+	 * @returns Результат парсинга расписания
+	 */
 	async getSourceSchedule(): Promise<ScheduleParseResult> {
 		const schedule = await this.scheduleParser.getSchedule();
 
@@ -93,6 +110,10 @@ export class ScheduleService {
 		return schedule;
 	}
 
+	/**
+	 * Получение расписания
+	 * @returns Объект расписания
+	 */
 	async getSchedule(): Promise<Schedule> {
 		const sourceSchedule = await this.getSourceSchedule();
 
@@ -103,6 +124,12 @@ export class ScheduleService {
 		};
 	}
 
+	/**
+	 * Получение расписания для группы
+	 * @param name Название группы
+	 * @returns Расписание группы
+	 * @throws NotFoundException Если группа не найдена
+	 */
 	async getGroup(name: string): Promise<GroupSchedule> {
 		const schedule = await this.getSourceSchedule();
 
@@ -120,6 +147,10 @@ export class ScheduleService {
 		};
 	}
 
+	/**
+	 * Получение списка названий групп
+	 * @returns Объект с массивом названий групп
+	 */
 	async getGroupNames(): Promise<GetGroupNamesDto> {
 		const schedule = await this.getSourceSchedule();
 		const names: Array<string> = [];
@@ -131,6 +162,12 @@ export class ScheduleService {
 		});
 	}
 
+	/**
+	 * Получение расписания для преподавателя
+	 * @param name ФИО преподавателя
+	 * @returns Расписание преподавателя
+	 * @throws NotFoundException Если преподаватель не найден
+	 */
 	async getTeacher(name: string): Promise<TeacherSchedule> {
 		const schedule = await this.getSourceSchedule();
 
@@ -148,6 +185,10 @@ export class ScheduleService {
 		};
 	}
 
+	/**
+	 * Получение списка ФИО преподавателей
+	 * @returns Объект с массивом ФИО преподавателей
+	 */
 	async getTeacherNames(): Promise<TeacherNamesDto> {
 		const schedule = await this.getSourceSchedule();
 		const names: Array<string> = [];
@@ -162,6 +203,11 @@ export class ScheduleService {
 		});
 	}
 
+	/**
+	 * Обновление URL для загрузки расписания
+	 * @param url Новый URL
+	 * @returns Объект с информацией о состоянии кэша
+	 */
 	async updateDownloadUrl(url: string): Promise<CacheStatusDto> {
 		await this.scheduleParser.getXlsDownloader().setDownloadUrl(url);
 
@@ -170,6 +216,9 @@ export class ScheduleService {
 		return this.getCacheStatus();
 	}
 
+	/**
+	 * Обновление кэша
+	 */
 	async refreshCache() {
 		await this.cacheManager.clear();
 

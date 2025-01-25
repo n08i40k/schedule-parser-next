@@ -4,8 +4,8 @@ import {
 	Controller,
 	HttpCode,
 	HttpStatus,
-	Param,
-	Post,
+	Param, Patch,
+	Post, Query,
 	UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "../auth/auth.guard";
@@ -54,11 +54,11 @@ export class FirebaseAdminController {
 		status: HttpStatus.OK,
 		description: "Установка токена удалась",
 	})
-	@Post("set-token/:token")
+	@Patch("set-token")
 	@HttpCode(HttpStatus.OK)
 	@ResultDto(null)
 	async setToken(
-		@Param("token") token: string,
+		@Query("token") token: string,
 		@UserToken(UserPipe) user: User,
 	): Promise<void> {
 		if (user.fcm?.token === token) return;
