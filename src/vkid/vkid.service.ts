@@ -21,16 +21,16 @@ export class VKIDService {
 				`redirect_uri=${vkIdConstants.redirectUri}`,
 		);
 
-		const accessToken: string = (response.data as { access_token: string })
-			.access_token;
+		const idToken: string = (response.data as { id_token: string })
+			.id_token;
 
-		if (!accessToken) {
+		if (!idToken) {
 			console.error(response.data);
 			return null;
 		}
 
 		return new OAuthResponseDto({
-			accessToken: accessToken,
+			accessToken: idToken,
 		});
 	}
 }

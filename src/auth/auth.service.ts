@@ -9,13 +9,14 @@ import { compare, genSalt, hash } from "bcrypt";
 import UserRole from "../users/user-role.enum";
 import User from "../users/entity/user.entity";
 import ChangePasswordDto from "./dto/change-password.dto";
-import axios from "axios";
 import SignInErrorDto, { SignInErrorCode } from "./dto/sign-in-error.dto";
 import { SignUpDto, SignUpVKDto } from "./dto/sign-up.dto";
 import SignUpErrorDto, { SignUpErrorCode } from "./dto/sign-up-error.dto";
 import { SignInDto, SignInVKDto } from "./dto/sign-in.dto";
 import ObjectID from "bson-objectid";
 import UserDto from "../users/dto/user.dto";
+import { decodeJwt, verifyJwtSignature } from "firebase-admin/lib/utils/jwt";
+import { vkIdConstants } from "../contants";
 
 @Injectable()
 export class AuthService {
@@ -123,7 +124,7 @@ export class AuthService {
 	/**
 	 * Парсит VK ID пользователя по access token
 	 *
-	 * @param accessToken - Access token пользователя VK
+	 * @param idToken - Access token пользователя VK
 	 * @returns Promise, который разрешается в VK ID пользователя или null в случае ошибки
 	 *
 	 * @example
@@ -134,26 +135,31 @@ export class AuthService {
 	 *   console.error('Ошибка при получении VK ID');
 	 * }
 	 */
-	private static async parseVKID(accessToken: string): Promise<number> {
-		const form = new FormData();
-		form.append("access_token", accessToken);
-		form.append("v", "5.199");
-
-		const response = await axios.post(
-			"https://api.vk.com/method/account.getProfileInfo",
-			form,
-			{ responseType: "json" },
-		);
-
-		const data: { error?: any; response?: { id: number } } =
-			response.data as object;
-
-		if (response.status !== 200 || data.error !== undefined) {
-			console.warn(data);
+	private static async parseVKID(idToken: string): Promise<number> {
+		try {
+			await verifyJwtSignature(idToken, vkIdConstants.jwtPubKey, {
+				issuer: "VK",
+				jwtid: "21",
+			});
+		} catch {
 			return null;
 		}
 
-		return data.response.id;
+		const decodedToken = await decodeJwt(idToken);
+		type TokenData = {
+			iis: string;
+			sub: number;
+			app: number;
+			exp: number;
+			iat: number;
+			jti: number;
+		};
+
+		const payload = decodedToken.payload as TokenData;
+
+		if (payload.app !== vkIdConstants.clientId) return null;
+
+		return payload.sub;
 	}
 
 	/**
