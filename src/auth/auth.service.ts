@@ -148,7 +148,10 @@ export class AuthService {
 		const data: { error?: any; response?: { id: number } } =
 			response.data as object;
 
-		if (response.status !== 200 || data.error !== undefined) return null;
+		if (response.status !== 200 || data.error !== undefined) {
+			console.warn(data);
+			return null;
+		}
 
 		return data.response.id;
 	}
