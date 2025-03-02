@@ -11,5 +11,5 @@ COPY . ./
 
 RUN npm run build
 
-ENTRYPOINT ["sh", "-c", "/scripts/start.sh"]
+ENTRYPOINT ["sh", "-c", "chmod +x /scripts/start.sh && /scripts/start.sh"]
 CMD ["npm", "run", "start:prod"]
