@@ -259,6 +259,8 @@ export class ScheduleParser {
 						teacher: `Только у другой`,
 					}),
 				);
+
+				if (subGroups[0].number === 2) subGroups.reverse();
 			}
 		} else if (subGroups.length === 2) {
 			// если индексы отсутствуют у обоих, ставим поочерёдно
