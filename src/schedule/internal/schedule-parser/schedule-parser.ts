@@ -248,8 +248,19 @@ export class ScheduleParser {
 		// фикс, если у кого-то отсутствует индекс подгруппы
 
 		// если 1 преподаватель
-		if (subGroups.length === 1) subGroups[0].number = 1;
-		else if (subGroups.length === 2) {
+		if (subGroups.length === 1) {
+			if (subGroups[0].number === 0) {
+				subGroups[0].number = 1;
+			} else {
+				subGroups.push(
+					new LessonSubGroup({
+						number: subGroups[0].number === 1 ? 2 : 1,
+						cabinet: null,
+						teacher: `Только у другой`,
+					}),
+				);
+			}
+		} else if (subGroups.length === 2) {
 			// если индексы отсутствуют у обоих, ставим поочерёдно
 			if (subGroups[0].number === 0 && subGroups[1].number === 0) {
 				subGroups[0].number = 1;

@@ -194,7 +194,8 @@ export class ScheduleService {
 		const names: Array<string> = [];
 
 		for (const name of schedule.teachers.keys()) {
-			if (name === "Ошибка в расписании") continue;
+			if (name === "Ошибка в расписании" || name === "Только у другой")
+				continue;
 			names.push(name);
 		}
 
