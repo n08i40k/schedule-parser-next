@@ -1,0 +1,11 @@
+#!/bin/sh
+
+DATABASE_URL="mongodb://$(cat "$MONGO_PROJECTDB_USERNAME_FILE"):$(cat "$MONGO_PROJECTDB_PASSWORD_FILE")@$MONGO_DOMAIN:$MONGO_PORT/$MONGO_INITDB_DATABASE?authMechanism=SCRAM-SHA-1"
+export DATABASE_URL
+
+JWT_SECRET=$(cat "$JWT_TOKEN_FILE")
+export JWT_SECRET
+
+npx prisma db push
+
+exec "$@"

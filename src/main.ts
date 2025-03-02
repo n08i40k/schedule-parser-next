@@ -43,12 +43,12 @@ async function bootstrap() {
 
 	swaggerDocument.servers = [
 		{
-			url: "https://polytechnic-dev.n08i40k.ru",
-			description: "Сервер для разработки и тестирования",
-		},
-		{
 			url: "https://polytechnic.n08i40k.ru",
 			description: "Сервер для продакшн окружения",
+		},
+		{
+			url: "https://polytechnic-dev.n08i40k.ru",
+			description: "Сервер для разработки и тестирования",
 		},
 	];
 
