@@ -1,18 +1,18 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { VKIDService } from './vkid.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { VKIDService } from "./vkid.service";
 
-describe('VkidService', () => {
-  let service: VKIDService;
+describe("VkidService", () => {
+	let service: VKIDService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [VKIDService],
-    }).compile();
+	beforeEach(async () => {
+		const module: TestingModule = await Test.createTestingModule({
+			providers: [VKIDService],
+		}).compile();
 
-    service = module.get<VKIDService>(VKIDService);
-  });
+		service = module.get<VKIDService>(VKIDService);
+	});
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+	it("should be defined", () => {
+		expect(service).toBeDefined();
+	});
 });
