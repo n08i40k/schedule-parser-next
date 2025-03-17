@@ -23,6 +23,10 @@ export const vkIdConstants = {
 		"-----END PUBLIC KEY-----",
 };
 
+export const axiosConstants = {
+	userAgent: process.env.USER_AGENT,
+};
+
 export const jwtConstants = {
 	secret: process.env.JWT_SECRET,
 };

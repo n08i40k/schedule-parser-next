@@ -8,6 +8,7 @@ import {
 	NotAcceptableException,
 	ServiceUnavailableException,
 } from "@nestjs/common";
+import { axiosConstants } from "../../../contants";
 
 export class BasicXlsDownloader implements XlsDownloaderInterface {
 	private url: string | null = null;
@@ -35,9 +36,16 @@ export class BasicXlsDownloader implements XlsDownloaderInterface {
 		url: string,
 		head: boolean,
 	): Promise<FetchResult> {
+		const requestHeaders = {
+			"User-Agent": axiosConstants.userAgent,
+		};
+
 		const response = await (head
-			? axios.head(url)
-			: axios.get(url, { responseType: "arraybuffer" }));
+			? axios.head(url, { headers: requestHeaders })
+			: axios.get(url, {
+					responseType: "arraybuffer",
+					headers: requestHeaders,
+				}));
 
 		if (response.status !== 200) {
 			console.error(`${response.status} ${response.statusText}`);
