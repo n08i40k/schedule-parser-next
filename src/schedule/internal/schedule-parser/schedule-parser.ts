@@ -12,7 +12,6 @@ import Lesson from "../../entities/lesson.entity";
 import Day from "../../entities/day.entity";
 import Group from "../../entities/group.entity";
 import * as assert from "node:assert";
-import { ScheduleReplacerService } from "../../schedule-replacer.service";
 import Teacher from "../../entities/teacher.entity";
 import TeacherDay from "../../entities/teacher-day.entity";
 import TeacherLesson from "../../entities/teacher-lesson.entity";
@@ -23,8 +22,8 @@ import {
 	IsString,
 	ValidateNested,
 } from "class-validator";
-import { ToMap } from "create-map-transform-fn";
 import { ClassProperties } from "../../../utility/class-trasformer/class-transformer-ctor";
+import { ToMap } from "create-map-transform-fn";
 
 type InternalId = {
 	/**
@@ -132,11 +131,9 @@ export class ScheduleParser {
 
 	/**
 	 * @param xlsDownloader - класс для загрузки расписания с сайта политехникума
-	 * @param scheduleReplacerService - сервис для подмены расписания
 	 */
 	public constructor(
 		private readonly xlsDownloader: XlsDownloaderInterface,
-		private readonly scheduleReplacerService?: ScheduleReplacerService,
 	) {}
 
 	/**
@@ -437,20 +434,10 @@ export class ScheduleParser {
 
 		assert(headData.type === "success");
 
-		const replacer = this.scheduleReplacerService
-			? await this.scheduleReplacerService.getByEtag(headData.etag)
-			: null;
-
-		if (this.lastResult && this.lastResult.etag === headData.etag) {
-			if (!replacer) return this.lastResult;
-
-			if (this.lastResult.replacerId === replacer.id)
-				return this.lastResult;
-		}
+		if (this.lastResult && this.lastResult.etag === headData.etag)
+			return this.lastResult;
 
 		const buffer = async () => {
-			if (replacer) return replacer.data;
-
 			const downloadData = await this.xlsDownloader.fetch(false);
 			this.xlsDownloader.verifyFetchResult(downloadData);
 
@@ -605,7 +592,7 @@ export class ScheduleParser {
 			uploadedAt: headData.uploadedAt,
 
 			etag: headData.etag,
-			replacerId: replacer?.id,
+			replacerId: null,
 
 			groups: groups,
 			teachers: teachers,

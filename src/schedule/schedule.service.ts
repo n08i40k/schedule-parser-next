@@ -2,7 +2,6 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { BasicXlsDownloader } from "./internal/xls-downloader/basic-xls-downloader";
 import { Cache, CACHE_MANAGER } from "@nestjs/cache-manager";
 import { plainToInstance } from "class-transformer";
-import { ScheduleReplacerService } from "./schedule-replacer.service";
 import { FirebaseAdminService } from "../firebase-admin/firebase-admin.service";
 import { scheduleConstants } from "../contants";
 import {
@@ -32,12 +31,10 @@ export class ScheduleService {
 	/**
 	 * Конструктор сервиса
 	 * @param cacheManager Менеджер кэша
-	 * @param scheduleReplacerService Сервис замены расписания
 	 * @param firebaseAdminService Сервис работы с Firebase
 	 */
 	constructor(
 		@Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-		private readonly scheduleReplacerService: ScheduleReplacerService,
 		private readonly firebaseAdminService: FirebaseAdminService,
 	) {
 		setInterval(() => {
@@ -57,10 +54,7 @@ export class ScheduleService {
 				.then();
 		}, 60000);
 
-		this.scheduleParser = new ScheduleParser(
-			new BasicXlsDownloader(),
-			this.scheduleReplacerService,
-		);
+		this.scheduleParser = new ScheduleParser(new BasicXlsDownloader());
 	}
 
 	/**
@@ -92,18 +86,15 @@ export class ScheduleService {
 
 		if (this.cacheHash !== oldHash) {
 			if (this.scheduleUpdatedAt.valueOf() !== 0) {
-				const isReplaced = await this.scheduleReplacerService.hasByEtag(
-					schedule.etag,
-				);
-
 				await this.firebaseAdminService.sendByTopic("common", {
 					data: {
 						type: "schedule-update",
-						replaced: isReplaced.toString(),
+						replaced: "false",
 						etag: schedule.etag,
 					},
 				});
 			}
+
 			this.scheduleUpdatedAt = new Date();
 		}
 

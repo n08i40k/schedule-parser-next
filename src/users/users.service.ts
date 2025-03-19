@@ -7,9 +7,16 @@ import User from "./entity/user.entity";
 export class UsersService {
 	constructor(private readonly prismaService: PrismaService) {}
 
-	async findUnique(where: Prisma.UserWhereUniqueInput): Promise<User> {
+	async findUnique(where: Prisma.UserWhereUniqueInput): Promise<User>;
+	async findUnique(args: Prisma.UserFindUniqueArgs): Promise<User>;
+
+	async findUnique(
+		args: Prisma.UserWhereUniqueInput | Prisma.UserFindUniqueArgs,
+	): Promise<User> {
 		return User.fromPlain(
-			await this.prismaService.user.findUnique({ where: where }),
+			await this.prismaService.user.findUnique(
+				"where" in args ? args : { where: args },
+			),
 		);
 	}
 
@@ -19,11 +26,8 @@ export class UsersService {
 		);
 	}
 
-	async update(params: {
-		where: Prisma.UserWhereUniqueInput;
-		data: Prisma.UserUpdateInput;
-	}): Promise<User> {
-		return User.fromPlain(await this.prismaService.user.update(params));
+	async update(args: Prisma.UserUpdateArgs): Promise<User> {
+		return User.fromPlain(await this.prismaService.user.update(args));
 	}
 
 	async create(data: Prisma.UserCreateInput): Promise<User> {

@@ -65,9 +65,10 @@ export class FirebaseAdminController {
 	): Promise<void> {
 		if (user.fcm?.token === token) return;
 
-		const updatedUser = (
-			await this.firebaseAdminService.updateToken(user, token)
-		).userDto;
+		const updatedUser = await this.firebaseAdminService.updateToken(
+			user,
+			token,
+		);
 
 		await this.firebaseAdminService
 			.subscribe(updatedUser, new Set(), true)

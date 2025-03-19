@@ -15,7 +15,6 @@ import { UsersService } from "../users/users.service";
 import User from "../users/entity/user.entity";
 import { TokenMessage } from "firebase-admin/lib/messaging/messaging-api";
 import FCM from "../users/entity/fcm-user.entity";
-import { plainToInstance } from "class-transformer";
 
 @Injectable()
 export class FirebaseAdminService implements OnModuleInit {
@@ -47,39 +46,47 @@ export class FirebaseAdminService implements OnModuleInit {
 		await this.messaging.send(message);
 	}
 
-	private getFcmOrDefault(user: User, token: string): FCM {
-		if (!user.fcm) {
-			return plainToInstance(FCM, {
-				token: token,
-				topics: [],
-			} as FCM);
-		}
+	private async getFcm(user: User, token: string): Promise<FCM> {
+		const userToFCM = (user: User) =>
+			user.fcm ? FCM.fromObject(user.fcm) : null;
 
-		return user.fcm;
+		const fcm = await this.usersService
+			.findUnique({
+				where: { id: user.id },
+				include: { fcm: true },
+			})
+			.then(userToFCM);
+
+		if (fcm) return FCM.fromObject(fcm);
+
+		return await this.usersService
+			.update({
+				where: { id: user.id },
+				data: { fcm: { create: { token: token, topics: [] } } },
+				include: { fcm: true },
+			})
+			.then(userToFCM);
 	}
 
-	async updateToken(
-		user: User,
-		token: string,
-	): Promise<{ userDto: User; isNew: boolean }> {
-		const isNew = user.fcm === null;
-		const fcm = this.getFcmOrDefault(user, token);
+	async updateToken(user: User, token: string): Promise<User> {
+		const fcm = await this.getFcm(user, token);
 
-		if (!isNew) {
-			if (fcm.token === token) return { userDto: user, isNew: false };
+		if (user.fcm !== null) {
+			if (fcm.token === token) {
+				user.fcm = fcm;
+				return user;
+			}
 
 			for (const topic of fcm.topics)
 				await this.messaging.subscribeToTopic(token, topic);
 			fcm.token = token;
 		}
 
-		return {
-			userDto: await this.usersService.update({
-				where: { id: user.id },
-				data: { fcm: fcm },
-			}),
-			isNew: isNew,
-		};
+		return await this.usersService.update({
+			where: { id: user.id },
+			data: { fcm: { update: { token: fcm.token } } },
+			include: { fcm: true },
+		});
 	}
 
 	async unsubscribe(user: User, topics: Set<string>): Promise<User> {
@@ -100,7 +107,8 @@ export class FirebaseAdminService implements OnModuleInit {
 
 		return await this.usersService.update({
 			where: { id: user.id },
-			data: { fcm: fcm },
+			data: { fcm: { update: { topics: fcm.topics } } },
+			include: { fcm: true },
 		});
 	}
 
@@ -126,11 +134,10 @@ export class FirebaseAdminService implements OnModuleInit {
 
 		if (newTopics.size === fcm.topics.length) return user;
 
-		fcm.topics = Array.from(newTopics);
-
 		return await this.usersService.update({
 			where: { id: user.id },
-			data: { fcm: fcm },
+			data: { fcm: { update: { topics: Array.from(newTopics) } } },
+			include: { fcm: true },
 		});
 	}
 

@@ -1,4 +1,6 @@
 import { IsArray, IsString, ValidateNested } from "class-validator";
+import { plainToInstance } from "class-transformer";
+import { ClassProperties } from "../../utility/class-trasformer/class-transformer-ctor";
 
 // noinspection JSClassNamingConvention
 export default class FCM {
@@ -17,4 +19,8 @@ export default class FCM {
 	@ValidateNested({ each: true })
 	@IsString()
 	topics: Array<string>;
+
+	static fromObject(object: ClassProperties<FCM>): FCM {
+		return plainToInstance(FCM, object);
+	}
 }

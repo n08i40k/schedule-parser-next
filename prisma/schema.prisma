@@ -9,14 +9,8 @@ generator client {
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
-}
-
-model ScheduleReplace {
-  id   String @id @default(auto()) @map("_id") @db.ObjectId
-  etag String @unique
-  data Bytes
 }
 
 enum UserRole {
@@ -25,13 +19,16 @@ enum UserRole {
   ADMIN
 }
 
-type FCM {
+model FCM {
   token  String
   topics String[]
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
 }
 
 model User {
-  id          String   @id @map("_id") @db.ObjectId
+  id          String   @id
   //
   username    String   @unique
   //
