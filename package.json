@@ -30,7 +30,7 @@
     "@nestjs/platform-fastify": "^11.0.5",
     "@nestjs/swagger": "^11.0.3",
     "@prisma/client": "^6.2.1",
-    "axios": "^1.7.9",
+    "axios": "^1.8.2",
     "bcrypt": "^5.1.1",
     "bson-objectid": "^2.0.4",
     "cache-manager": "^6.4.0",
