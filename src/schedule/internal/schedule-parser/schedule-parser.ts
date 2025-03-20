@@ -24,6 +24,7 @@ import {
 } from "class-validator";
 import { ClassProperties } from "../../../utility/class-trasformer/class-transformer-ctor";
 import { ToMap } from "create-map-transform-fn";
+import cloneDeep from "lodash/cloneDeep";
 
 type InternalId = {
 	/**
@@ -353,74 +354,53 @@ export class ScheduleParser {
 	private static convertGroupsToTeachers(
 		groups: Map<string, Group>,
 	): Map<string, Teacher> {
-		const result = new Map<string, Teacher>();
+		const teachers = new Map<string, Teacher>();
 
-		for (const groupName of groups.keys()) {
-			const group = groups.get(groupName);
+		const days = (() => {
+			const group = groups.values().next().value as Group;
 
-			for (const day of group.days) {
-				for (const lesson of day.lessons) {
-					if (lesson.type !== LessonType.DEFAULT) continue;
+			return group.days.map((day) => {
+				return new TeacherDay({
+					name: day.name,
+					street: day.street,
+					date: day.date,
+					lessons: [],
+				});
+			});
+		})();
 
-					for (const subGroup of lesson.subGroups) {
-						let teacherDto: Teacher = result.get(subGroup.teacher);
+		const cloneDays = () => cloneDeep(days);
 
-						if (!teacherDto) {
-							teacherDto = new Teacher({
-								name: subGroup.teacher,
-								days: [],
-							});
+		for (const group of groups.values()) {
+			group.days.forEach((day, dayIndex) => {
+				for (const groupLesson of day.lessons) {
+					if (groupLesson.type !== LessonType.DEFAULT) continue;
 
-							result.set(subGroup.teacher, teacherDto);
+					for (const subGroup of groupLesson.subGroups) {
+						if (!teachers.has(subGroup.teacher)) {
+							teachers.set(
+								subGroup.teacher,
+								new Teacher({
+									name: subGroup.teacher,
+									days: cloneDays(),
+								}),
+							);
 						}
 
-						let teacherDay = teacherDto.days[
-							day.name
-						] as TeacherDay;
+						const teacherDay = teachers.get(subGroup.teacher).days[
+							dayIndex
+						];
 
-						if (!teacherDay) {
-							teacherDay = teacherDto.days[day.name] =
-								new TeacherDay({
-									name: day.name,
-									date: day.date,
-									lessons: [],
-								});
-						}
+						const lesson = cloneDeep(groupLesson) as TeacherLesson;
+						lesson.group = group.name;
 
-						const teacherLesson = structuredClone(
-							lesson,
-						) as TeacherLesson;
-						teacherLesson.group = groupName;
-
-						teacherDay.lessons.push(teacherLesson);
+						teacherDay.lessons.push(lesson);
 					}
 				}
-			}
+			});
 		}
 
-		for (const teacherName of result.keys()) {
-			const teacher = result.get(teacherName);
-
-			const days = teacher.days;
-
-			// eslint-disable-next-line @typescript-eslint/no-for-in-array
-			for (const dayName in days) {
-				const day = days[dayName];
-
-				// eslint-disable-next-line @typescript-eslint/no-array-delete
-				delete days[dayName];
-
-				day.lessons.sort(
-					(a, b) => a.time.start.valueOf() - b.time.start.valueOf(),
-				);
-
-				days.push(day);
-			}
-
-			days.sort((a, b) => a.date.valueOf() - b.date.valueOf());
-		}
-
-		return result;
+		return teachers;
 	}
 
 	/**
