@@ -4,7 +4,6 @@ import * as XLSX from "xlsx";
 import { Range, WorkSheet } from "xlsx";
 import { toNormalString, trimAll } from "../../../utility/string.util";
 import { plainToInstance, Type } from "class-transformer";
-import * as objectHash from "object-hash";
 import LessonTime from "../../entities/lesson-time.entity";
 import { LessonType } from "../../enum/lesson-type.enum";
 import LessonSubGroup from "../../entities/lesson-sub-group.entity";
@@ -24,7 +23,8 @@ import {
 } from "class-validator";
 import { ClassProperties } from "../../../utility/class-trasformer/class-transformer-ctor";
 import { ToMap } from "create-map-transform-fn";
-import cloneDeep from "lodash/cloneDeep";
+
+import * as objectHash from "object-hash";
 
 type InternalId = {
 	/**
@@ -369,7 +369,7 @@ export class ScheduleParser {
 			});
 		})();
 
-		const cloneDays = () => cloneDeep(days);
+		const cloneDays = () => structuredClone(days);
 
 		for (const group of groups.values()) {
 			group.days.forEach((day, dayIndex) => {
@@ -391,7 +391,10 @@ export class ScheduleParser {
 							dayIndex
 						];
 
-						const lesson = cloneDeep(groupLesson) as TeacherLesson;
+						const lesson = structuredClone(
+							groupLesson,
+						) as TeacherLesson;
+
 						lesson.group = group.name;
 
 						teacherDay.lessons.push(lesson);
