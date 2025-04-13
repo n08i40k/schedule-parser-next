@@ -563,11 +563,6 @@ export class ScheduleParser {
 			groups.set(group.name, group);
 		}
 
-		const updatedGroups = ScheduleParser.getUpdatedGroups(
-			this.lastResult?.groups,
-			groups,
-		);
-
 		const teachers = ScheduleParser.convertGroupsToTeachers(groups);
 
 		return (this.lastResult = {
@@ -580,11 +575,7 @@ export class ScheduleParser {
 			groups: groups,
 			teachers: teachers,
 
-			updatedGroups:
-				updatedGroups.length === 0
-					? (this.lastResult?.updatedGroups ?? [])
-					: updatedGroups,
-
+			updatedGroups: [],
 			updatedTeachers: [], // TODO: Вернуть эту фичу
 		});
 	}

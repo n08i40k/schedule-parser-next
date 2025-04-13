@@ -54,7 +54,7 @@ describe("ScheduleParser", () => {
 	describe("Расписание", () => {
 		beforeEach(async () => {
 			await setLink(
-				"https://politehnikum-eng.ru/2024/poltavskaja_15_s_9_po_13.12-1-.xls",
+				"https://politehnikum-eng.ru/2025/poltavskaja_31_s_14_po_20_04-1_.xls",
 			);
 		});
 
@@ -69,7 +69,7 @@ describe("ScheduleParser", () => {
 			);
 			expect(schedule).toBeDefined();
 
-			const group: Group | undefined = schedule.groups.get("ИС-114/23");
+			const group: Group | undefined = schedule.groups.get("ИС-112/24");
 			expect(group).toBeDefined();
 
 			const day = group.days[0];

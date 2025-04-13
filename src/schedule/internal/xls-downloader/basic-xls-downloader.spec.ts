@@ -23,7 +23,7 @@ describe("BasicXlsDownloader", () => {
 
 	it("Должен вернуть скачанный файл", async () => {
 		await downloader.setDownloadUrl(
-			"https://politehnikum-eng.ru/2024/poltavskaja_15_s_9_po_13.12-1-.xls",
+			"https://politehnikum-eng.ru/2025/poltavskaja_31_s_14_po_20_04-1_.xls",
 		);
 
 		expect(() => {

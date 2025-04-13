@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "builder": "swc",
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
